@@ -1,0 +1,6 @@
+<?xml version="1.0"?>
+<launch>
+  <node pkg="pedestrain_tracking_and_localizaiton" type="tracker" name="tracker" output="screen">
+  </node>
+</launch>
+

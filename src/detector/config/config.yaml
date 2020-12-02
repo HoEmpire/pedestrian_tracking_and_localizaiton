@@ -1,0 +1,16 @@
+data_topic:
+  lidar_topic: /livox/lidar
+  camera_topic: /camera/color/image_raw/compressed
+  depth_topic: /livox/lidar
+
+cam:
+  cam_net_type: "YOLOV4_TINY"
+  cam_file_model_cfg: "/asset/yolov4-tiny.cfg"
+  cam_file_model_weights: "/asset/yolov4-tiny.weights"
+  cam_inference_precison: "FP32"
+  cam_n_max_batch: 1
+  cam_prob_threshold: 0.5
+  cam_min_width: 0
+  cam_max_width: 640
+  cam_min_height: 0
+  cam_max_height: 480
