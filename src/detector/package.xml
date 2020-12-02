@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package format="2">
-    <name>pedestrain_tracking_and_localizaiton</name>
+    <name>detector</name>
     <version>1.0.0</version>
     <description>none</description>
     <maintainer email="yxpeng@udel.edu">Yuxiang Peng</maintainer>

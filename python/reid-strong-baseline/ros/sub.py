@@ -3,7 +3,7 @@
 import rospy
 import cv2
 # from std_msgs.msg import String
-from pedestrain_tracking_and_localizaiton.msg import ImageBlock
+from detector.msg import ImageBlock
 from cv_bridge import CvBridge
 
 
@@ -23,7 +23,7 @@ class listener():
             rospy.loginfo("bbox ratio = %f", 1.0 * b.data[3] / b.data[2])
             if 1 <= 1.0 * b.data[3] / b.data[2] <= 3:
                 rospy.loginfo("saving imgs")
-                path = "/home/tim/test/src/pedestrain_tracking_and_localizaiton/python/reid-strong-baseline/data/test_data/rgbd"
+                path = "/home/tim/pdtlr-project/src/pedestrain_tracking_and_localizaiton/python/reid-strong-baseline/data/test_data/rgbd"
                 image_path = path + "/" + str(self.id) + ".jpg"
                 self.id = self.id + 1
                 cv2.imwrite(

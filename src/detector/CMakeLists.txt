@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.5)
 
-project(pedestrain_tracking_and_localizaiton)
+project(detector)
 set(CMAKE_BUILD_TYPE "Release")
 set(CMAKE_CXX_FLAGS "-std=c++11 ${CMAKE_CXX_FLAGS} -O3")
 
@@ -18,7 +18,7 @@ find_package(catkin
     # image_transport
     )
 
-find_package(OpenCV 3 REQUIRED)
+find_package(OpenCV 4.4.0 REQUIRED)
 
 add_message_files(
     FILES
@@ -48,6 +48,6 @@ include_directories(
 include_directories( "/usr/local/include/opentracker" )
 find_library(OpenTracker_LIBS libopentracker.so /usr/local/lib)
 
-# add_executable(detector_test src/detector_test.cpp) 
-# target_link_libraries(detector_test ${catkin_LIBRARIES} ${OpenCV_LIBS})
+add_executable(detector_test src/detector_test.cpp) 
+target_link_libraries(detector_test ${catkin_LIBRARIES} ${OpenCV_LIBS})
 

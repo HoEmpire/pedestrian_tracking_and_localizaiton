@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <launch>
-  <rosparam command="load" file="$(find pedestrain_tracking_and_localizaiton)/config/config.yaml" />
-  <node pkg="pedestrain_tracking_and_localizaiton" type="detector_test" name="detector_test" output="screen">
+  <rosparam command="load" file="$(find detector)/config/config.yaml" />
+  <node pkg="detector" type="detector_test" name="detector_test" output="screen">
   </node>
 </launch>
 
