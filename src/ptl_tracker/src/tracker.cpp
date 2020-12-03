@@ -4,6 +4,7 @@
 #include "ros/ros.h"
 #include "std_msgs/UInt16MultiArray.h"
 #include "sensor_msgs/Image.h"
+#include "sensor_msgs/CompressedImage.h"
 #include "cv_bridge/cv_bridge.h"
 #include <image_transport/image_transport.h>
 
@@ -24,7 +25,7 @@ public:
 
 private:
   void detector_result_callback(const ptl_msgs::ImageBlockPtr &msg);
-  void data_callback(const sensor_msgs::ImagePtr &msg);
+  void data_callback(const sensor_msgs::CompressedImageConstPtr &msg);
   bool bbox_matching(Rect2d track_bbox, Rect2d detect_bbox);
 
 public:
@@ -42,7 +43,7 @@ TrackerInterface::TrackerInterface(ros::NodeHandle *n)
 {
   nh_ = n;
   m_track_vis_pub = n->advertise<sensor_msgs::Image>("tracker_results", 1);
-  m_detector_sub = n->subscribe("/detector/detector_to_tracker", 1, &TrackerInterface::detector_result_callback, this);
+  m_detector_sub = n->subscribe("/ptl_detector/detector_to_tracker", 1, &TrackerInterface::detector_result_callback, this);
   m_data_sub = n->subscribe(config.camera_topic, 1, &TrackerInterface::data_callback, this);
 }
 
@@ -82,7 +83,7 @@ void TrackerInterface::detector_result_callback(const ptl_msgs::ImageBlockPtr &m
   }
 }
 
-void TrackerInterface::data_callback(const sensor_msgs::ImagePtr &msg)
+void TrackerInterface::data_callback(const sensor_msgs::CompressedImageConstPtr &msg)
 {
   cv_bridge::CvImagePtr cv_ptr;
   cv::Mat image_detection_result;
@@ -122,6 +123,9 @@ bool TrackerInterface::bbox_matching(Rect2d track_bbox, Rect2d detect_bbox)
 int main(int argc, char *argv[])
 {
   ros::init(argc, argv, "ptl_tracker");
+  ros::NodeHandle n("ptl_tracker");
+  loadConfig(n);
+  TrackerInterface tracker(&n);
   ros::spin();
   return 0;
 }

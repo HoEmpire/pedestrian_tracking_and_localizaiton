@@ -22,7 +22,7 @@ DataProcessHub::DataProcessHub(ros::NodeHandle *n)
 {
     nh_ = n;
     m_detected_result_pub = nh_->advertise<sensor_msgs::Image>("detection_result", 1);
-    m_image_block_pub = nh_->advertise<ptl_msgs::ImageBlock>("image_blocks", 1);
+    m_image_block_pub = nh_->advertise<ptl_msgs::ImageBlock>("detector_to_tracker", 1);
     m_image_sub = nh_->subscribe(config.camera_topic, 1, &DataProcessHub::image_callback, this);
 }
 

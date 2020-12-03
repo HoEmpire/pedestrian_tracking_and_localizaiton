@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<launch>
+  <rosparam command="load" file="$(find ptl_tracker)/config/config.yaml" />
+  <node pkg="ptl_tracker" type="tracker" name="ptl_tracker" output="screen">
+  </node>
+</launch>
+
