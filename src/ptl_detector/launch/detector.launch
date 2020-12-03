@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<launch>
+  <rosparam command="load" file="$(find ptl_detector)/config/config.yaml" />
+  <node pkg="ptl_detector" type="detector" name="ptl_detector" output="screen">
+  </node>
+</launch>
+

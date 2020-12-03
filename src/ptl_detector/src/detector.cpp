@@ -1,9 +1,9 @@
-#include "detector/detector.hpp"
+#include "ptl_detector/detector.hpp"
 #include <cv_bridge/cv_bridge.h>
 #include <image_transport/image_transport.h>
 #include <ros/ros.h>
 #include <sensor_msgs/CompressedImage.h>
-#include "detector/ImageBlock.h"
+#include "ptl_msgs/ImageBlock.h"
 
 class DataProcessHub
 {
@@ -22,7 +22,7 @@ DataProcessHub::DataProcessHub(ros::NodeHandle *n)
 {
     nh_ = n;
     m_detected_result_pub = nh_->advertise<sensor_msgs::Image>("detection_result", 1);
-    m_image_block_pub = nh_->advertise<detector::ImageBlock>("image_blocks", 1);
+    m_image_block_pub = nh_->advertise<ptl_msgs::ImageBlock>("image_blocks", 1);
     m_image_sub = nh_->subscribe(config.camera_topic, 1, &DataProcessHub::image_callback, this);
 }
 
@@ -38,7 +38,7 @@ void DataProcessHub::image_callback(const sensor_msgs::CompressedImageConstPtr &
     m_detected_result_pub.publish(image_msg);
 
     //publish bbox and image info for re-identificaiton
-    detector::ImageBlock image_block_msg;
+    ptl_msgs::ImageBlock image_block_msg;
     sensor_msgs::ImagePtr image_origin_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", cv_ptr->image).toImageMsg();
     image_block_msg.img = *image_origin_msg;
     for (auto r : m_detector.results)
@@ -58,9 +58,9 @@ void DataProcessHub::image_callback(const sensor_msgs::CompressedImageConstPtr &
 
 int main(int argc, char **argv)
 {
-    ros::init(argc, argv, "detector_test");
+    ros::init(argc, argv, "ptl_detector");
 
-    ros::NodeHandle n("detector_test");
+    ros::NodeHandle n("ptl_detector");
     loadConfig(n);
     DataProcessHub data_process_hub(&n);
     ros::spin();
