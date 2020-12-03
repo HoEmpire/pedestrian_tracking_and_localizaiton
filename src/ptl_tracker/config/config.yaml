@@ -1,0 +1,8 @@
+data_topic:
+  lidar_topic: /livox/lidar
+  camera_topic: /camera/color/image_raw/compressed
+  depth_topic: /livox/lidar
+
+tracker:
+  track_fail_timeout_tick: 30
+  bbox_match_pixel_dis: 30

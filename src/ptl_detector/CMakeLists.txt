@@ -13,6 +13,7 @@ find_package(catkin
     rospy
     usfs_inference
     usfs_common
+    ptl_msgs
     # cv_bridge
     # image_transport
     )
@@ -25,7 +26,7 @@ catkin_package(
     INCLUDE_DIRS include
     LIBRARIES ${PROJECT_NAME}
     CATKIN_DEPENDS roscpp
-    DEPENDS)
+)
 
 
 # common include directories
@@ -33,9 +34,6 @@ include_directories(
     include
     ${catkin_INCLUDE_DIRS}
 )
-
-include_directories( "/usr/local/include/opentracker" )
-find_library(OpenTracker_LIBS libopentracker.so /usr/local/lib)
 
 add_executable(detector src/detector.cpp) 
 target_link_libraries(detector ${catkin_LIBRARIES} ${OpenCV_LIBS})

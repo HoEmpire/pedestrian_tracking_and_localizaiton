@@ -1,3 +1,4 @@
+#pragma once
 #include <opencv2/opencv.hpp>
 #include "opentracker/kcf/kcftracker.hpp"
 #include <geometry_msgs/Pose.h>
@@ -20,16 +21,26 @@ struct LocalObject
     int tracking_fail_count;
     geometry_msgs::Point position_local;
     KCFTracker *dssttracker;
+    Scalar color;
 
     void update_tracker(Mat frame)
     {
-        dssttracker->update(frame, bbox);
+
+        if (dssttracker->update(frame, bbox))
+            tracking_fail_count = 0;
+        else
+            tracking_fail_count++;
     }
 
-    void init(int id_init)
+    void init(int id_init, Rect2d bbox_init, Mat frame)
     {
         id = id_init;
+        bbox = bbox_init;
+        tracking_fail_count = 0;
         dssttracker = new KCFTracker(HOG, FIXEDWINDOW, MULTISCALE, LAB, DSST);
+        dssttracker->init(frame, bbox);
+        RNG rng(time(0));
+        color = Scalar(rng.uniform(0, 255), rng.uniform(0, 255), rng.uniform(0, 255));
     }
 };
 
