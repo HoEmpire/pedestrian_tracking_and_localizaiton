@@ -53,7 +53,8 @@ void DataProcessHub::image_callback(const sensor_msgs::CompressedImageConstPtr &
             image_block_msg.bboxs.push_back(bbox);
         }
     }
-    m_image_block_pub.publish(image_block_msg);
+    if (!m_detector.results.empty())
+        m_image_block_pub.publish(image_block_msg);
 }
 
 int main(int argc, char **argv)

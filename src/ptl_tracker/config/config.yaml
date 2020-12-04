@@ -4,5 +4,5 @@ data_topic:
   depth_topic: /livox/lidar
 
 tracker:
-  track_fail_timeout_tick: 30
-  bbox_match_pixel_dis: 30
+  track_fail_timeout_tick: 2
+  bbox_match_pixel_dis: 100

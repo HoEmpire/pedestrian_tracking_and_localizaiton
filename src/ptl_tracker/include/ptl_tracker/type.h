@@ -4,8 +4,9 @@
 #include <geometry_msgs/Pose.h>
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
+#include <ros/ros.h>
 #define HOG true
-#define FIXEDWINDOW true
+#define FIXEDWINDOW false
 #define MULTISCALE true
 #define LAB true
 #define DSST true
@@ -22,14 +23,21 @@ struct LocalObject
     geometry_msgs::Point position_local;
     KCFTracker *dssttracker;
     Scalar color;
+    bool is_track_succeed;
 
     void update_tracker(Mat frame)
     {
-
-        if (dssttracker->update(frame, bbox))
+        is_track_succeed = dssttracker->update(frame, bbox);
+        if (is_track_succeed)
+        {
             tracking_fail_count = 0;
+        }
+
         else
+        {
             tracking_fail_count++;
+            ROS_INFO_STREAM("Object " << id << " tracking failure detected!");
+        }
     }
 
     void init(int id_init, Rect2d bbox_init, Mat frame)
@@ -41,6 +49,14 @@ struct LocalObject
         dssttracker->init(frame, bbox);
         RNG rng(time(0));
         color = Scalar(rng.uniform(0, 255), rng.uniform(0, 255), rng.uniform(0, 255));
+    }
+
+    void reinit(Rect2d bbox_init, Mat frame)
+    {
+        bbox = bbox_init;
+        tracking_fail_count = 0;
+        dssttracker = new KCFTracker(HOG, FIXEDWINDOW, MULTISCALE, LAB, DSST);
+        dssttracker->init(frame, bbox);
     }
 };
 
