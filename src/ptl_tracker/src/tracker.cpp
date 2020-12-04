@@ -60,12 +60,13 @@ void TrackerInterface::detector_result_callback(const ptl_msgs::ImageBlockPtr &m
   {
     for (auto b = bboxs.begin(); b != bboxs.end();)
     {
-      for (auto lo : local_objects_list)
+      for (auto lo = local_objects_list.begin(); lo != local_objects_list.end(); lo++)
       {
-        if (bbox_matching(lo.bbox, Rect2d(b->data[0], b->data[1], b->data[2], b->data[3])))
+        if (bbox_matching(lo->bbox, Rect2d(b->data[0], b->data[1], b->data[2], b->data[3])))
         {
-          ROS_INFO_STREAM("Object " << lo.id << " re-detected!");
-          lo.reinit(Rect2d(b->data[0], b->data[1], b->data[2], b->data[3]), cv_ptr->image);
+          ROS_INFO_STREAM("Object " << lo->id << " re-detected!");
+          lo->reinit(Rect2d(b->data[0], b->data[1], b->data[2], b->data[3]), cv_ptr->image);
+          // lo->bbox = Rect2d(b->data[0], b->data[1], b->data[2], b->data[3]);
           b = bboxs.erase(b); //删除该对象
           erase_flag = true;
           break;

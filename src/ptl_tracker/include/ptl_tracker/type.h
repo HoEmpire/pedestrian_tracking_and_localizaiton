@@ -6,7 +6,7 @@
 #include <visualization_msgs/MarkerArray.h>
 #include <ros/ros.h>
 #define HOG true
-#define FIXEDWINDOW false
+#define FIXEDWINDOW true
 #define MULTISCALE true
 #define LAB true
 #define DSST true
