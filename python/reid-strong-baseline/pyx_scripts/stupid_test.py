@@ -14,8 +14,10 @@ from engine.inference import inference
 from modeling import baseline
 from PIL import Image
 from ptl_msgs.msg import ImageBlock
+from std_msgs.msg import Int16
 from torchvision import transforms
 from utils import reid_metric
+import rospy
 
 
 def build_model():
@@ -41,7 +43,7 @@ def blur_detection(img):
     res = cv2.Laplacian(img_gray, cv2.CV_64F, ksize=1)
     score = res.var()
     if score < 100.0:
-        rospy.info(
+        rospy.loginfo(
             "Image Blur Detected, discard this image for database maintaince!")
         return True
     else:
@@ -53,113 +55,186 @@ class Object():
         self.id = id
         self.feats = feat
 
-
     def add_feat(self, feat):
         feat.feats = torch.cat((self.feats, feat), 0)
+
+    def is_full(self):
+        if feats.shape[0] > 10:
+            return True
+        else:
+            return False
 
 
 class ReIDDatabase():
     def __init__(self):
         self.object_list = []
         self.feat_id_list = []
-        self.feat_all = torch.tensor([])
+        self.feat_all = torch.tensor([]).cuda()
         self.object_num = 0
 
     def init_database(self, feats):
         for f in feats:
-            new_object = Object(self.object_num, f)
-            self.object_list.append(new_object)
-            self.feat_id_list.append(new_object.id)
-            if self.feat_all.shape[0] == 0:
-                self.feat_all = f
-            else:
-                self.feat_all = torch.cat((self.feat_all, f), 0)
-            self.object_num = self.object_num++
-            
+            self.add_new_object(f)
 
-    def query_feat(self, feats):
-        if self.id_max == 0:
-            self.init_database(feats)
+    def add_new_object(self, feat):
+        new_object = Object(self.object_num, feat)
+        self.object_list.append(new_object)
+        self.feat_id_list.append(new_object.id)
+        if self.feat_all.shape[0] == 0:
+            self.feat_all = feat
         else:
-            distmat = reid_metric.re_ranking(qf, gf, k1=20, k2=6, lambda_value=0.5)
-            print(distmat.shape)
-            rank = np.argsort(distmat, axis=1).squeeze()
+            self.feat_all = torch.cat((self.feat_all, f), 0)
+        self.object_num = self.object_num + 1
+        return self.object_num - 1
 
-            for i in range(10):
-                print(gallery_list[rank[i]])
-                print(distmat.squeeze(0)[rank[i]])
-                plt.figure(0)
-                plt.imshow(image[rank[i]].numpy().transpose(1, 2, 0))
-                plt.show()
-             
+    def add_new_feat(self, feats, ids):
+        for f, i in feats, ids:
+            distmat = reid_metric.re_ranking(f,
+                                             self.object_list[i].feats,
+                                             k1=20,
+                                             k2=6,
+                                             lambda_value=0.5).squeeze(0)
+            rank = np.argsort(distmat, axis=0).squeeze()
+            if dis[rank[0]] > 0.15 & (not self.object_list[i].is_full()):
+                # update global database
+                self.feat_all = torch.cat((self.feat_all, f), 0)
+                self.feat_id_list.append(i)
+
+                #update local database
+                self.object_list[i].feats = torch.cat(
+                    (object_list[i].feats, f), 0)
+
+
+'''
+Database management strategies:
+    before query: 
+        - do nothing when the image is blur
+        - the image with id != -1
+            - remove the one with the height/width ratio is not good 
+            - remove the one that database has been already full
+        - the image with id = -1
+            - do nothing
+    
+    after query:
+        - the image with id != -1
+            - remove the one too similar to the database
+        - the image with id = 1
+            - new image:
+                - do nothing
+            - old image:
+                - remove the one with the height/width ratio is not good 
+                - remove the one that database has been already full
+                - remove the one too similar to the database
+
+# Publisher
+# need to publish the object with id=-1 back with new assigned id
+'''
 
 
 class ReIDNode():
     def __init__(self):
         self.model = build_model()
-        rospy.info("Load ReID net successfully!")
+        self.database = ReIDDatabase()
+        rospy.init_node('ReID', anonymous=True)
+        self.pub = rospy.Publisher('chatter', ImageBlock, queue_size=1)
+        rospy.Subscriber('/detector_test/image_blocks',
+                         ImageBlock,
+                         self.tracker_loginfo_callback,
+                         None,
+                         queue_size=1)
+        rospy.loginfo("Load ReID net successfully!")
+        rospy.spin()
 
-    def tracker_info_callback(self, data):
+    def tracker_loginfo_callback(self, data):
         bridge = CvBridge()
         cvimg = bridge.imgmsg_to_cv2(data.img, "bgr8")
-    
-    def re_identification(self, data)
+        img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        if blur_detection(img_gray):
+            return
+        else:
+            ids_update, bboxs_update, imgs_update = [], [], []
+            ids_query, bboxs_query, imgs_query = [], [], []
 
+            for i, b in data.id, data.bboxs:
+                img_block = cvimg[b.data[1]:b.data[1] + b.data[3],
+                                  b.data[0]:b.data[0] + b.data[2]]
+                img_block.resize(256, 128).transpose(1, 2, 0)
+                if i != -1:
+                    # remove the one with id that does not meet the requirement
+                    if (1 <= 1.0 * b.data[3] / b.data[2] <=
+                            3) & (not self.database.object_list[i].is_full()):
+                        ids_update.append(i.data)
+                        bboxs_update.append(b)
+                        imgs_update.append(img_block)
+                else:
+                    bboxs_query.append(b)
+                    imgs_query.append(img_block)
 
-def main():
-    model = build_model()
+            # process img for query
+            feats_query = self.cal_feat(imgs_update)
+            ids_query = self.query(feats_query)
+            ids_msgs = []
+            for i in ids_query:
+                id_msg = Int16()
+                id_msg.data = i
+                ids_msgs.append(i)
 
-    gallery_root = "/home/tim/ptl_project/src/pedestrain_tracking_and_localizaiton/python/reid-strong-baseline/data/test_data/gallery2"
-    query_root = "/home/tim/ptl_project/src/pedestrain_tracking_and_localizaiton/python/reid-strong-baseline/data/test_data/query"
-    gallery_list = os.listdir(gallery_root)
-    print(gallery_list)
-    query_list = os.listdir(query_root)
-    for i, g in enumerate(gallery_list):
-        gallery_list[i] = os.path.join(gallery_root, g)
+            pub_msgs = ImageBlock()
+            pub_msgs.img = data.img
+            pub_msgs.bboxs = bboxs_query
+            pub_msgs.ids = ids_msgs
+            self.pub(pub_msgs)
 
-    for i, q in enumerate(query_list):
-        query_list[i] = os.path.join(query_root, q)
+            # process img for update
+            feats_update = self.cal_feat(imgs_update)
+            self.update_database(feats_update, ids_update)
 
-    path_all = gallery_list + query_list
-    # print(path_all)
-    image = []
-    for p in path_all:
-        image.append(
-            transforms.Resize(
-                (256, 128))(transforms.ToTensor()(Image.open(p))))
-    feat = []
-    model.eval()
-    start = time.time()
-    for img in image:
+    def cal_feat(self, img_block):
+        input_tensor = []
+        for ib in img_block:
+            if len(input_tensor) == 0:
+                input_tensor = torch.from_numpy(ib.transpose(1, 2,
+                                                             0)).unsqueeze(0)
+            else:
+                torch.cat((input_tensor, torch.from_numpy(ib.transpose(
+                    1, 2, 0)).unsqueeze(0)), 0)
         with torch.no_grad():
-            image_tmp = img.unsqueeze(0).cuda()
-            feat.append(model(image_tmp))
-    gf = feat[0]
-    for f in feat[1:-1]:
-        gf = torch.cat((gf, f), 0)
-    qf = feat[-1]
-    print("it takes {} seconds".format(
-        (time.time() - start) / image.__len__()))
-    print(gf.shape)
-    print(qf.shape)
-    print(gf)
-    print(qf)
-    # m, n = qf.shape[0], gf.shape[0]
-    # distmat = torch.pow(qf, 2).sum(dim=1, keepdim=True).expand(m, n) + \
-    #               torch.pow(gf, 2).sum(dim=1, keepdim=True).expand(n, m).t()
-    # distmat.addmm_(1, -2, qf, gf.t())
-    print("Enter reranking")
-    distmat = reid_metric.re_ranking(qf, gf, k1=20, k2=6, lambda_value=0.5)
-    print(distmat.shape)
-    rank = np.argsort(distmat, axis=1).squeeze()
+            input_tensor_cuda = input_tensor.cuda()
+            feats = model(input_tensor_cuda)
+        return feats
 
-    for i in range(10):
-        print(gallery_list[rank[i]])
-        print(distmat.squeeze(0)[rank[i]])
-        plt.figure(0)
-        plt.imshow(image[rank[i]].numpy().transpose(1, 2, 0))
-        plt.show()
+    def update_database(self, feats, ids):
+        if self.id_max == 0:
+            rospy.loginfo("Database initialized failed!!!!!")
+        else:
+            for f, dis in feats, distmat:
+                if dis[rank[0]] < 0.2:
+                    self.database.add_new_feat(f, self.database.feat_id_list[
+                        rank[0]])  # check the similarity of the database
+
+    def query(self, feats):
+        ids = []
+        if self.id_max == 0:
+            self.init_database(feats)
+            ids = [i for i in range(feats.shape[0])]
+        else:
+            distmat = reid_metric.re_ranking(feats,
+                                             self.feat_all,
+                                             k1=20,
+                                             k2=6,
+                                             lambda_value=0.5)
+            rank = np.argsort(distmat, axis=1).squeeze()
+
+            for f, dis in feats, distmat:
+                if dis[rank[0]] < 0.2:
+                    self.database.add_new_feat(f, self.database.feat_id_list[
+                        rank[0]])  # check the similarity of the database
+                    ids.append(feat_id_list[rank[0]])
+                else:
+                    ros.py("New object detected! Add it to the database!")
+                    ids.append(self.database.add_new_object(f))
+        return ids
 
 
 if __name__ == '__main__':
-    main()
+    ReIDNode()
