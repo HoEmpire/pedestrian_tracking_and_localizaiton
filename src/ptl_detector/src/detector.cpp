@@ -41,6 +41,8 @@ void DataProcessHub::image_callback(const sensor_msgs::CompressedImageConstPtr &
     ptl_msgs::ImageBlock image_block_msg;
     sensor_msgs::ImagePtr image_origin_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", cv_ptr->image).toImageMsg();
     image_block_msg.img = *image_origin_msg;
+    std_msgs::Int16 unknown_id;
+    unknown_id.data = -1;
     for (auto r : m_detector.results)
     {
         if (r.type == 0)
@@ -51,6 +53,7 @@ void DataProcessHub::image_callback(const sensor_msgs::CompressedImageConstPtr &
             bbox.data.push_back(r.bbox.width);
             bbox.data.push_back(r.bbox.height);
             image_block_msg.bboxs.push_back(bbox);
+            image_block_msg.ids.push_back(unknown_id);
         }
     }
     if (!m_detector.results.empty())
