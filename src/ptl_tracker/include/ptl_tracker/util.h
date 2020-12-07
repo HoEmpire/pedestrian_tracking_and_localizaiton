@@ -12,6 +12,7 @@ struct ConfigSetting
 
     int track_fail_timeout_tick = 30;
     int bbox_match_pixel_dis = 30;
+    int track_to_reid_bbox_margin = 10;
 
 } config;
 
@@ -23,4 +24,5 @@ void loadConfig(ros::NodeHandle n)
 
     n.getParam("/tracker/track_fail_timeout_tick", config.track_fail_timeout_tick);
     n.getParam("/tracker/bbox_match_pixel_dis", config.bbox_match_pixel_dis);
+    n.getParam("/tracker/track_to_reid_bbox_margin", config.track_to_reid_bbox_margin);
 }

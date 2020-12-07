@@ -26,7 +26,9 @@ public:
 private:
     void detector_result_callback(const ptl_msgs::ImageBlockPtr &msg);
     void data_callback(const sensor_msgs::CompressedImageConstPtr &msg);
+    void reid_result_callback(const ptl_msgs::ImageBlockPtr &msg);
     bool bbox_matching(Rect2d track_bbox, Rect2d detect_bbox);
+    bool is_tracking(int id);
 
 public:
     vector<LocalObject> local_objects_list;
@@ -35,7 +37,7 @@ public:
 private:
     ros::NodeHandle *nh_;
     ros::Publisher m_track_vis_pub, m_track_to_reid_pub;
-    ros::Subscriber m_detector_sub, m_data_sub;
+    ros::Subscriber m_detector_sub, m_data_sub, m_reid_sub;
     mutex mtx;
 };
 
@@ -45,6 +47,7 @@ TrackerInterface::TrackerInterface(ros::NodeHandle *n)
     m_track_vis_pub = n->advertise<sensor_msgs::Image>("tracker_results", 1);
     m_track_to_reid_pub = n->advertise<ptl_msgs::ImageBlock>("tracker_to_reid", 1);
     m_detector_sub = n->subscribe("/ptl_detector/detector_to_tracker", 1, &TrackerInterface::detector_result_callback, this);
+    m_reid_sub = n->subscribe("/ptl_reid/reid_to_tracker", 1, &TrackerInterface::reid_result_callback, this);
     m_data_sub = n->subscribe(config.camera_topic, 1, &TrackerInterface::data_callback, this);
 }
 
@@ -78,6 +81,24 @@ void TrackerInterface::detector_result_callback(const ptl_msgs::ImageBlockPtr &m
             }
         }
     }
+    // int height = cv_ptr->image.rows;
+    // int width = cv_ptr->image.cols;
+    // //remove the bbox too close to the margin
+    // for (auto b = pub_msg.bboxs.begin(); b != pub_msg.bboxs.end();)
+    // {
+    //     Rect2d cv_bbox(b->data[0], b->data[1], b->data[2], b->data[3]);
+    //     if (cv_bbox.tl().x < config.bbox_match_pixel_dis ||
+    //         cv_bbox.tl().y < config.bbox_match_pixel_dis ||
+    //         cv_bbox.br().x > width - config.bbox_match_pixel_dis ||
+    //         cv_bbox.br().y > height - config.bbox_match_pixel_dis)
+    //     {
+    //         b = pub_msg.bboxs.erase(b);
+    //     }
+    //     else
+    //     {
+    //         b++;
+    //     }
+    // }
     m_track_to_reid_pub.publish(pub_msg);
 
     // bool erase_flag = false;
@@ -152,6 +173,49 @@ void TrackerInterface::data_callback(const sensor_msgs::CompressedImageConstPtr 
     m_track_vis_pub.publish(cv_bridge::CvImage(std_msgs::Header(), "bgr8", track_vis).toImageMsg());
 }
 
+void TrackerInterface::reid_result_callback(const ptl_msgs::ImageBlockPtr &msg)
+{
+    if (msg->ids.empty())
+        return;
+    cv_bridge::CvImagePtr cv_ptr;
+    cv::Mat image_detection_result;
+    cv_ptr = cv_bridge::toCvCopy(msg->img, sensor_msgs::image_encodings::BGR8);
+
+    //add the new ones
+    ROS_INFO("Adding new/old objects to the local list!");
+    for (auto id : msg->ids)
+        ROS_INFO_STREAM("ReID objects id: " << id.data);
+    ROS_INFO_STREAM("BUG HERE! "
+                    << "ids: " << msg->ids.size() << ", bboxs:" << msg->bboxs.size());
+    if (!msg->bboxs.empty())
+    {
+        lock_guard<mutex> lk(mtx); //加锁
+        for (int i = 0; i < msg->bboxs.size(); i++)
+        {
+            Rect2d bbox(msg->bboxs[i].data[0], msg->bboxs[i].data[1], msg->bboxs[i].data[2], msg->bboxs[i].data[3]);
+            if (msg->ids[i].data >= global_objects.object_num)
+            {
+                LocalObject new_object;
+                ROS_INFO_STREAM("REID ID" << msg->ids[i].data << "global objects num:" << global_objects.object_num);
+                ROS_INFO_STREAM("Adding New Tracking Object with ID:" << global_objects.object_num);
+                new_object.init(global_objects.object_num++, bbox, cv_ptr->image);
+                local_objects_list.push_back(new_object);
+            }
+            else // if (msg->ids[i].data < global_objects.object_num && msg->ids[i].data >= 0)
+            {
+                if (!is_tracking(msg->ids[i].data))
+                {
+                    LocalObject old_object;
+                    cout << msg->ids[i].data << endl;
+                    ROS_INFO_STREAM("Adding Old Tracking Object with ID:" << msg->ids[i].data);
+                    old_object.init(msg->ids[i].data, bbox, cv_ptr->image);
+                    local_objects_list.push_back(old_object);
+                }
+            }
+        }
+    }
+}
+
 //TODO might use better matching strategies
 bool TrackerInterface::bbox_matching(Rect2d track_bbox, Rect2d detect_bbox)
 {
@@ -160,6 +224,17 @@ bool TrackerInterface::bbox_matching(Rect2d track_bbox, Rect2d detect_bbox)
     //             pow(track_bbox.y + track_bbox.height / 2 - detect_bbox.y + detect_bbox.height / 2, 2)) < config.bbox_match_pixel_dis;
     return sqrt(pow(track_bbox.x - detect_bbox.x, 2) +
                 pow(track_bbox.y - detect_bbox.y, 2)) < config.bbox_match_pixel_dis;
+}
+
+bool TrackerInterface::is_tracking(const int id)
+{
+    for (auto lo : local_objects_list)
+    {
+        // ROS_INFO_STREAM("list: " << lo.id << ", query:" << id);
+        if (lo.id == id)
+            return true;
+    }
+    return false;
 }
 
 int main(int argc, char *argv[])

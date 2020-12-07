@@ -10,7 +10,7 @@ cam:
   cam_inference_precison: "FP32"
   cam_n_max_batch: 1
   cam_prob_threshold: 0.6
-  cam_min_width: 50
+  cam_min_width: 80
   cam_max_width: 640
-  cam_min_height: 50
+  cam_min_height: 80
   cam_max_height: 480
