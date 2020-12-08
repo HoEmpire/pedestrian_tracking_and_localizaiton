@@ -11,7 +11,7 @@ struct ConfigSetting
     string lidar_topic, camera_topic, depth_topic;
 
     int track_fail_timeout_tick = 30;
-    int bbox_match_pixel_dis = 30;
+    double bbox_overlap_ratio = 0.5;
     int track_to_reid_bbox_margin = 10;
 
 } config;
@@ -23,6 +23,6 @@ void loadConfig(ros::NodeHandle n)
     n.getParam("/data_topic/depth_topic", config.depth_topic);
 
     n.getParam("/tracker/track_fail_timeout_tick", config.track_fail_timeout_tick);
-    n.getParam("/tracker/bbox_match_pixel_dis", config.bbox_match_pixel_dis);
+    n.getParam("/tracker/bbox_overlap_ratio", config.bbox_overlap_ratio);
     n.getParam("/tracker/track_to_reid_bbox_margin", config.track_to_reid_bbox_margin);
 }

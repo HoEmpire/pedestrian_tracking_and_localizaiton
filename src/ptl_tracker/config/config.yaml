@@ -5,5 +5,5 @@ data_topic:
 
 tracker:
   track_fail_timeout_tick: 3
-  bbox_match_pixel_dis: 50
+  bbox_overlap_ratio: 0.5
   track_to_reid_bbox_margin: 0
