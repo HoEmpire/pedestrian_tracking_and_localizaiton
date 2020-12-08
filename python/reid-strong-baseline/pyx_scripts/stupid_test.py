@@ -20,8 +20,8 @@ from utils import reid_metric
 import rospy
 from cv2 import cv2 as cv2
 
-SIM_TEST_THRESHOLD = 30.0
-SAME_OBJECT_THRESHOLD = 150.0
+SIM_TEST_THRESHOLD = 50.0
+SAME_OBJECT_THRESHOLD = 600.0
 BLUR_DETECTION_THRESHOLD = 160.0
 
 
@@ -38,6 +38,7 @@ def build_model():
     num_classes = 1
     last_stride = 1
     pretrain_path = "/home/tim/market_resnet50_model_120_rank1_945.pth"
+    # pretrain_path = '/home/tim/duke_resnet50_model_120_rank1_864.pth'
     model_neck = 'bnneck'
     neck_feat = "after"
     model_name = "resnet50"
@@ -115,8 +116,9 @@ class ReIDDatabase():
             rank = np.argsort(distmat, axis=1).squeeze(0)
             rospy.loginfo("In add new features of id: %d", i)
             rospy.loginfo(distmat[0][rank])
-            if (distmat[0][rank[0]] >
-                    SIM_TEST_THRESHOLD) & (not self.object_list[i].is_full()):
+            if (SIM_TEST_THRESHOLD < distmat[0][rank[0]] <
+                    SAME_OBJECT_THRESHOLD) & (
+                        not self.object_list[i].is_full()):
                 rospy.loginfo("adding new feature to id:%d", i)
                 # update global database
                 self.feat_all = torch.cat((self.feat_all, f.unsqueeze(0)), 0)
@@ -190,18 +192,18 @@ class ReIDNode():
                 img_block = img_block.transpose(2, 0, 1)
                 # subtracting 0.485, 0.456, 0.406 and dividing by 0.229, 0.224, 0.225 to normailize the data
                 img_block = img_block / 255.0
-                img_block[0] = (img_block[0] - 0.485) * 0.229
-                img_block[1] = (img_block[1] - 0.456) * 0.224
-                img_block[2] = (img_block[2] - 0.406) * 0.225
+                img_block[0] = (img_block[0] - 0.485) / 0.229
+                img_block[1] = (img_block[1] - 0.456) / 0.224
+                img_block[2] = (img_block[2] - 0.406) / 0.225
                 if i.data != -1:
                     # remove the one with id that does not meet the requirement
-                    if (1.2 <= 1.0 * b.data[3] / b.data[2] <= 2.8) & (
+                    if (1.0 <= 1.0 * b.data[3] / b.data[2] <= 3.0) & (
                             not self.database.object_list[i.data].is_full()):
                         ids_update.append(i.data)
                         bboxs_update.append(b)
                         imgs_update.append(img_block)
                 else:
-                    if (1.2 <= 1.0 * b.data[3] / b.data[2] <= 2.8):
+                    if (1.0 <= 1.0 * b.data[3] / b.data[2] <= 3.0):
                         bboxs_query.append(b)
                         imgs_query.append(img_block)
 
@@ -279,15 +281,15 @@ class ReIDNode():
             #                                  lambda_value=0.5)
             distmat = cal_dis(feats, self.database.feat_all)
             rank = np.argsort(distmat, axis=1)
-            for (f, dis) in zip(feats, distmat):
+            for (r, f, dis) in zip(rank, feats, distmat):
                 rospy.loginfo("In query:")
-                rospy.loginfo(dis[rank[0]])
-                if dis[rank[0][0]] < SAME_OBJECT_THRESHOLD:
+                rospy.loginfo(dis[r])
+                if dis[r[0]] < SAME_OBJECT_THRESHOLD:
                     self.database.add_new_feat(
                         f.unsqueeze(0),
-                        self.database.feat_id_list[rank[0][0]:rank[0][0] + 1]
+                        self.database.feat_id_list[r[0]:r[0] + 1]
                     )  # check the similarity of the database
-                    ids.append(self.database.feat_id_list[rank.squeeze(0)[0]])
+                    ids.append(self.database.feat_id_list[r[0]])
                 else:
                     rospy.loginfo(
                         "New object detected! Add it to the database!")
