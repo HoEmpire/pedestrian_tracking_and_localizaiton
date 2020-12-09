@@ -50,6 +50,7 @@ namespace ptl_tracker
         float height_width_ratio_max = 3.0;
         float blur_detection_threshold = 160.0;
         float record_interval = 0.1;
+        int batch_num_min = 3;
     };
 
 } // namespace ptl_tracker

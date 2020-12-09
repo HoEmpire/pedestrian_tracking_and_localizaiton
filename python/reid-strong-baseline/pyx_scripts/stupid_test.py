@@ -13,16 +13,18 @@ from data import make_data_loader
 from engine.inference import inference
 from modeling import baseline
 from PIL import Image
-from ptl_msgs.msg import ImageBlock
+from ptl_msgs.msg import DeadTracker
 from std_msgs.msg import Int16
 from torchvision import transforms
 from utils import reid_metric
 import rospy
 from cv2 import cv2 as cv2
+from collections import Counter
 
 SIM_TEST_THRESHOLD = 50.0
 SAME_OBJECT_THRESHOLD = 600.0
 BLUR_DETECTION_THRESHOLD = 160.0
+BATCH_RATIO = 0.5
 
 
 def cal_dis(qf, gf):
@@ -88,9 +90,8 @@ class ReIDDatabase():
         self.feat_all = torch.tensor([]).cuda()
         self.object_num = 0
 
-    def init_database(self, feats):
-        for f in feats:
-            self.add_new_object(f.unsqueeze(0))
+    def init_database(self, feat):
+        self.add_new_object(feat.unsqueeze(0))
 
     def add_new_object(self, feat):
         new_object = Object(self.object_num, feat)
@@ -104,29 +105,23 @@ class ReIDDatabase():
         self.object_num = self.object_num + 1
         return self.object_num - 1
 
-    def add_new_feat(self, feats, ids):
-        for (f, i) in zip(feats, ids):
-            # distmat = reid_metric.re_ranking(f,
-            #                                  self.object_list[i].feats,
-            #                                  k1=20,
-            #                                  k2=6,
-            #                                  lambda_value=0.5).squeeze(0)
-
-            distmat = cal_dis(f.unsqueeze(0), self.object_list[i].feats)
+    def add_new_feat(self, feats, id):
+        for f in feats:
+            distmat = cal_dis(f.unsqueeze(0), self.object_list[id].feats)
             rank = np.argsort(distmat, axis=1).squeeze(0)
-            rospy.loginfo("In add new features of id: %d", i)
-            rospy.loginfo(distmat[0][rank])
+            # rospy.loginfo("In add new features of id: %d", id)
+            # rospy.loginfo(distmat[0][rank])
             if (SIM_TEST_THRESHOLD < distmat[0][rank[0]] <
                     SAME_OBJECT_THRESHOLD) & (
-                        not self.object_list[i].is_full()):
-                rospy.loginfo("adding new feature to id:%d", i)
+                        not self.object_list[id].is_full()):
+                rospy.loginfo("adding new feature to id:%d", id)
                 # update global database
                 self.feat_all = torch.cat((self.feat_all, f.unsqueeze(0)), 0)
-                self.feat_id_list.append(i)
+                self.feat_id_list.append(id)
 
                 #update local database
-                self.object_list[i].feats = torch.cat(
-                    (self.object_list[i].feats, f.unsqueeze(0)), 0)
+                self.object_list[id].feats = torch.cat(
+                    (self.object_list[id].feats, f.unsqueeze(0)), 0)
 
 
 '''
@@ -160,74 +155,36 @@ class ReIDNode():
         self.model = build_model()
         self.database = ReIDDatabase()
         rospy.init_node('ReID', anonymous=True)
-        self.pub = rospy.Publisher('/ptl_reid/reid_to_tracker',
-                                   ImageBlock,
-                                   queue_size=1)
         rospy.Subscriber('/ptl_tracker/tracker_to_reid',
-                         ImageBlock,
+                         DeadTracker,
                          self.tracker_loginfo_callback,
                          None,
-                         queue_size=1)
+                         queue_size=10)
         rospy.loginfo("Load ReID net successfully!")
         rospy.spin()
 
     def tracker_loginfo_callback(self, data):
         rospy.loginfo("**********into call back***********")
         bridge = CvBridge()
-        cvimg = bridge.imgmsg_to_cv2(data.img, "rgb8")
+        query_img_list = []
+        for img in data.img_blocks:
+            img_block = bridge.imgmsg_to_cv2(img, "rgb8")
+            img_block = cv2.resize(img_block, (128, 256),
+                                   interpolation=cv2.INTER_CUBIC)
+            img_block = img_block.transpose(2, 0, 1)
 
-        # print(type(cvimg))
-        # print(cvimg.shape)
-        # img_gray = cv2.cvtColor(cvimg, cv2.COLOR_BGR2GRAY)
-        if blur_detection(cvimg):
-            return
-        else:
-            ids_update, bboxs_update, imgs_update = [], [], []
-            ids_query, bboxs_query, imgs_query = [], [], []
-            for (i, b) in zip(data.ids, data.bboxs):
-                img_block = cvimg[b.data[1]:b.data[1] + b.data[3],
-                                  b.data[0]:b.data[0] + b.data[2]]
-                img_block = cv2.resize(img_block, (128, 256),
-                                       interpolation=cv2.INTER_CUBIC)
-                img_block = img_block.transpose(2, 0, 1)
-                # subtracting 0.485, 0.456, 0.406 and dividing by 0.229, 0.224, 0.225 to normailize the data
-                img_block = img_block / 255.0
-                img_block[0] = (img_block[0] - 0.485) / 0.229
-                img_block[1] = (img_block[1] - 0.456) / 0.224
-                img_block[2] = (img_block[2] - 0.406) / 0.225
-                if i.data != -1:
-                    # remove the one with id that does not meet the requirement
-                    if (1.0 <= 1.0 * b.data[3] / b.data[2] <= 3.0) & (
-                            not self.database.object_list[i.data].is_full()):
-                        ids_update.append(i.data)
-                        bboxs_update.append(b)
-                        imgs_update.append(img_block)
-                else:
-                    if (1.0 <= 1.0 * b.data[3] / b.data[2] <= 3.0):
-                        bboxs_query.append(b)
-                        imgs_query.append(img_block)
+            # subtracting 0.485, 0.456, 0.406 and dividing by 0.229, 0.224, 0.225 to normailize the data
+            img_block = img_block / 255.0
+            img_block[0] = (img_block[0] - 0.485) / 0.229
+            img_block[1] = (img_block[1] - 0.456) / 0.224
+            img_block[2] = (img_block[2] - 0.406) / 0.225
+
+            query_img_list.append(img_block)
 
             # process img for query
-            if len(imgs_query) != 0:
-                feats_query = self.cal_feat(imgs_query)
-                ids_query = self.query(feats_query)
-                ids_msgs = []
-                for i in ids_query:
-                    id_msg = Int16()
-                    id_msg.data = i
-                    rospy.loginfo("Send id:%d to tracker", i)
-                    ids_msgs.append(id_msg)
-
-                pub_msgs = ImageBlock()
-                pub_msgs.img = data.img
-                pub_msgs.bboxs = bboxs_query
-                pub_msgs.ids = ids_msgs
-                self.pub.publish(pub_msgs)
-
-            # process img for update
-            if len(imgs_update) != 0:
-                feats_update = self.cal_feat(imgs_update)
-                self.update_database(feats_update, ids_update)
+            if len(query_img_list) != 0:
+                feats_query = self.cal_feat(query_img_list)
+                self.query(feats_query)
 
             # summary
             rospy.loginfo("********summary*********")
@@ -253,48 +210,37 @@ class ReIDNode():
             feats = self.model(input_tensor_cuda)
         return feats
 
-    def update_database(self, feats, ids):
-        if self.database.object_num == 0:
-            rospy.loginfo("Database initialized failed!!!!!")
-        else:
-            for (f, i) in zip(feats, ids):
-                # dis = reid_metric.re_ranking(
-                #     f,
-                #     self.database.object_list[i].feats,
-                #     k1=20,
-                #     k2=6,
-                #     lambda_value=0.5)
-                self.database.add_new_feat(
-                    f.unsqueeze(0), self.database.feat_id_list[i:i + 1]
-                )  # check the similarity of the database
-
     def query(self, feats):
-        ids = []
         if self.database.object_num == 0:
-            self.database.init_database(feats)
-            ids = [i for i in range(feats.shape[0])]
+            id = 0
+            self.database.init_database(feats[0])
+            self.database.add_new_feat(feats[1:], id)
         else:
-            # distmat = reid_metric.re_ranking(feats,
-            #                                  self.database.feat_all,
-            #                                  k1=20,
-            #                                  k2=6,
-            #                                  lambda_value=0.5)
             distmat = cal_dis(feats, self.database.feat_all)
             rank = np.argsort(distmat, axis=1)
-            for (r, f, dis) in zip(rank, feats, distmat):
-                rospy.loginfo("In query:")
-                rospy.loginfo(dis[r])
+            ids = []
+            for (r, dis) in zip(rank, distmat):
+                # rospy.loginfo("In query:")
+                # rospy.loginfo(dis[r])
                 if dis[r[0]] < SAME_OBJECT_THRESHOLD:
-                    self.database.add_new_feat(
-                        f.unsqueeze(0),
-                        self.database.feat_id_list[r[0]:r[0] + 1]
-                    )  # check the similarity of the database
                     ids.append(self.database.feat_id_list[r[0]])
                 else:
-                    rospy.loginfo(
-                        "New object detected! Add it to the database!")
-                    ids.append(self.database.add_new_object(f.unsqueeze(0)))
-        return ids
+                    ids.append(-1)
+
+            # get the id of this batch
+            id_most_common = Counter(ids).most_common()[0][0]
+            id_most_common_frequency = Counter(ids).most_common()[0][1]
+            # old object
+            if (id_most_common_frequency >
+                    len(ids) * BATCH_RATIO) & (id_most_common != -1):
+                id = id_most_common
+                self.database.add_new_feat(feats, id)
+            # new object
+            else:
+                id = self.database.add_new_object(feats[0:1])
+                self.database.add_new_feat(feats[1:], id)
+            rospy.loginfo("Query result id: %d", id)
+        return id
 
 
 if __name__ == '__main__':

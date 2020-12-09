@@ -117,13 +117,14 @@ namespace ptl_tracker
         {
             if (lo->tracking_fail_count >= track_fail_timeout_tick)
             {
-                vector<sensor_msgs::Image> msg_pub;
+                ptl_msgs::DeadTracker msg_pub;
                 for (auto ib : lo->img_blocks)
                 {
                     sensor_msgs::ImagePtr img_tmp = cv_bridge::CvImage(std_msgs::Header(), "bgr8", ib).toImageMsg();
-                    msg_pub.push_back(*img_tmp);
+                    msg_pub.img_blocks.push_back(*img_tmp);
                 }
-                m_track_to_reid_pub.publish(msg_pub);
+                if (msg_pub.img_blocks.size() > batch_num_min)
+                    m_track_to_reid_pub.publish(msg_pub);
                 lo = local_objects_list.erase(lo);
                 continue;
             }
@@ -187,6 +188,7 @@ namespace ptl_tracker
         GPARAM(n, "/local_database/height_width_ratio_max", height_width_ratio_max);
         GPARAM(n, "/local_database/blur_detection_threshold", blur_detection_threshold);
         GPARAM(n, "/local_database/record_interval", record_interval);
+        GPARAM(n, "/local_database/batch_num_min", batch_num_min);
     }
 
     bool TrackerInterface::blur_detection(cv::Mat img)
