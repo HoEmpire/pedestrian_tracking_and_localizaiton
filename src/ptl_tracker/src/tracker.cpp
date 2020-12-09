@@ -1,5 +1,6 @@
 #include "ptl_tracker/tracker.h"
 #include "ptl_tracker/util.h"
+#include "ptl_msgs/DeadTracker.h"
 
 using cv::Mat;
 using cv::Rect2d;
@@ -16,7 +17,7 @@ namespace ptl_tracker
         nh_ = n;
         load_config(nh_);
         m_track_vis_pub = n->advertise<sensor_msgs::Image>("tracker_results", 1);
-        m_track_to_reid_pub = n->advertise<ptl_msgs::ImageBlock>("tracker_to_reid", 1);
+        m_track_to_reid_pub = n->advertise<ptl_msgs::DeadTracker>("tracker_to_reid", 1);
         m_detector_sub = n->subscribe("/ptl_detector/detector_to_tracker", 1, &TrackerInterface::detector_result_callback, this);
         m_data_sub = n->subscribe(camera_topic, 1, &TrackerInterface::data_callback, this);
     }
@@ -116,6 +117,13 @@ namespace ptl_tracker
         {
             if (lo->tracking_fail_count >= track_fail_timeout_tick)
             {
+                vector<sensor_msgs::Image> msg_pub;
+                for (auto ib : lo->img_blocks)
+                {
+                    sensor_msgs::ImagePtr img_tmp = cv_bridge::CvImage(std_msgs::Header(), "bgr8", ib).toImageMsg();
+                    msg_pub.push_back(*img_tmp);
+                }
+                m_track_to_reid_pub.publish(msg_pub);
                 lo = local_objects_list.erase(lo);
                 continue;
             }
