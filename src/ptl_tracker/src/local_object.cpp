@@ -10,6 +10,7 @@ namespace ptl_tracker
         dssttracker->init(frame, bbox);
         cv::RNG rng(std::time(0));
         color = cv::Scalar(rng.uniform(0, 255), rng.uniform(0, 255), rng.uniform(0, 255));
+        time.tic();
     }
 
     void LocalObject::update_tracker(cv::Mat frame)

@@ -28,6 +28,7 @@ namespace ptl_tracker
         void data_callback(const sensor_msgs::CompressedImageConstPtr &msg);
         bool bbox_matching(cv::Rect2d track_bbox, cv::Rect2d detect_bbox);
         void load_config(ros::NodeHandle *n);
+        bool update_local_database(std::vector<LocalObject>::iterator local_object, const cv::Mat img_block);
 
     public:
         std::vector<LocalObject> local_objects_list;
@@ -48,6 +49,7 @@ namespace ptl_tracker
         float height_width_ratio_min = 1.0;
         float height_width_ratio_max = 3.0;
         float blur_detection_threshold = 160.0;
+        float record_interval = 0.1;
     };
 
 } // namespace ptl_tracker
