@@ -76,7 +76,7 @@ namespace ptl_tracker
         cv_bridge::CvImagePtr cv_ptr;
         cv::Mat image_detection_result;
         cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
-
+        bool is_blur = blur_detection(cv_ptr->image);
         lock_guard<mutex> lk(mtx); //加锁
         for (auto lo = local_objects_list.begin(); lo < local_objects_list.end();)
         {
@@ -122,5 +122,19 @@ namespace ptl_tracker
 
         n->getParam("/local_database/height_width_ratio_min", height_width_ratio_min);
         n->getParam("/local_database/height_width_ratio_max", height_width_ratio_max);
+        n->getParam("/local_database/blur_detection_threshold", blur_detection_threshold);
+    }
+
+    bool TrackerInterface::blur_detection(cv::Mat img)
+    {
+        cv::Mat img_gray;
+        cv::cvtColor(img, img_gray, cv::COLOR_BGR2GRAY);
+        cv::Mat lap;
+        cv::Laplacian(img_gray, lap, CV_64F);
+
+        cv::Scalar mu, sigma;
+        cv::meanStdDev(lap, mu, sigma);
+        ROS_INFO_STREAM("Blur detection score: " << sigma.val[0] * sigma.val[0]);
+        return sigma.val[0] * sigma.val[0] < blur_detection_threshold;
     }
 } // namespace ptl_tracker

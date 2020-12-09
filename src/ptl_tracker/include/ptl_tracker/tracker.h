@@ -33,6 +33,8 @@ namespace ptl_tracker
         std::vector<LocalObject> local_objects_list;
 
     private:
+        bool blur_detection(cv::Mat img);
+
         int id;
         ros::NodeHandle *nh_;
         ros::Publisher m_track_vis_pub, m_track_to_reid_pub;
@@ -45,6 +47,7 @@ namespace ptl_tracker
         int track_to_reid_bbox_margin = 10;
         float height_width_ratio_min = 1.0;
         float height_width_ratio_max = 3.0;
+        float blur_detection_threshold = 160.0;
     };
 
 } // namespace ptl_tracker
