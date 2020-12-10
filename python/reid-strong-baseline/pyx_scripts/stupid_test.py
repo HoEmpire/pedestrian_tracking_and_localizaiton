@@ -7,16 +7,12 @@ import time
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-from config import cfg
 from cv_bridge import CvBridge
-from data import make_data_loader
-from engine.inference import inference
 from modeling import baseline
 from PIL import Image
 from ptl_msgs.msg import DeadTracker
 from std_msgs.msg import Int16
 from torchvision import transforms
-from utils import reid_metric
 import rospy
 from cv2 import cv2 as cv2
 from collections import Counter
