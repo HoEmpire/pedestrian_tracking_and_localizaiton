@@ -102,8 +102,9 @@ class ReIDNode():
             id_most_common = Counter(ids).most_common()[0][0]
             id_most_common_frequency = Counter(ids).most_common()[0][1]
             # old object
-            if (id_most_common_frequency > len(ids) *
-                    self.database.cfg.batch_ratio) & (id_most_common != -1):
+            if (id_most_common_frequency >= int(
+                    len(ids) * self.database.cfg.batch_ratio)) & (
+                        id_most_common != -1):
                 id = id_most_common
                 self.database.add_new_feat(feats, id)
             # new object
