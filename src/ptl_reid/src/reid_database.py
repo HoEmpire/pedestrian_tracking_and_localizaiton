@@ -13,12 +13,6 @@ class Object():
     def add_feat(self, feat):
         feat.feats = torch.cat((self.feats, feat), 0)
 
-    def is_full(self):
-        if self.feats.shape[0] > 20:
-            return True
-        else:
-            return False
-
 
 class ReIDDatabase():
     def __init__(self):
@@ -51,7 +45,8 @@ class ReIDDatabase():
             # rospy.loginfo(distmat[0][rank])
             if (self.cfg.similarity_test_threshold < distmat[0][rank[0]] <
                     self.cfg.same_id_threshold) & (
-                        not self.object_list[id].is_full()):
+                        self.object_list[id].feats.shape[0] <=
+                        self.cfg.object_img_num):
                 rospy.loginfo("adding new feature to id:%d", id)
                 # update global database
                 self.feat_all = torch.cat((self.feat_all, f.unsqueeze(0)), 0)

@@ -11,6 +11,7 @@ class Config():
         self.similarity_test_threshold = data['similarity_test_threshold']
         self.same_id_threshold = data['same_id_threshold']
         self.batch_ratio = data['batch_ratio']
+        self.object_img_num = data['object_img_num']
         f.close()
 
 
@@ -19,3 +20,4 @@ if __name__ == "__main__":
     print(cfg.similarity_test_threshold)
     print(cfg.same_id_threshold)
     print(cfg.batch_ratio)
+    print(cfg.object_img_num)
