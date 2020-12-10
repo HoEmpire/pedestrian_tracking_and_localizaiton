@@ -13,3 +13,4 @@ local_database:
   height_width_ratio_max: 3.0
   blur_detection_threshold: 150.0
   record_interval: 0.2
+  batch_num_min: 3

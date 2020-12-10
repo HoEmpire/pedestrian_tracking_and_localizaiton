@@ -1,0 +1,3 @@
+similarity_test_threshold: 100.0
+same_id_threshold: 600.0
+batch_ratio: 0.5

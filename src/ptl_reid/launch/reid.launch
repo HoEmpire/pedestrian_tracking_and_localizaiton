@@ -1,0 +1,4 @@
+<?xml version="1.0"?>
+<launch>
+  <node pkg="ptl_reid" type="ptl_reid.py" name="ptl_reid" output="screen"></node>
+</launch>
