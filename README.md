@@ -108,7 +108,7 @@ The config files of each package can be found in `${PROJECT_NAME}/config/config.
 
       $$ratio = min(\frac{Area_{overlap}}{Area_{detector}},\frac{Area_{overlap}}{Area_{detector}})$$
 
-  - **height_width_ratio_min/max**: only the image block with height/width fails in the range of $(height\_width\_ratio\_min, height\_width\_ratio\_max)$ will be added into the local database
+  - **height_width_ratio_min/max**: only the image block with height/width fails in the range of  (height_width_ratio_min, height_width_ratio_max) will be added into the local database
   - **blur_detection_threshold**: if the image blur detection score is lower than this value, we will discard this image
   - **record_interval**: the unit is second. It defines the minimum time interval between two images in a local database
   - **batch_num_min**: if the number of images in the local database is smaller than this value, we will not perform re-identification of this object (remove false-positive in detection)
