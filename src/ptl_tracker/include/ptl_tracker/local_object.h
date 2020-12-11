@@ -8,32 +8,35 @@
 
 #include "ptl_tracker/timer.hpp"
 
-namespace ptl_tracker
+namespace ptl
 {
-    class LocalObject
+    namespace tracker
     {
-    public:
-        LocalObject(int id_init, cv::Rect2d bbox_init, cv::Mat frame);
-        void update_tracker(cv::Mat frame);
-        void reinit(cv::Rect2d bbox_init, cv::Mat frame);
+        class LocalObject
+        {
+        public:
+            LocalObject(int id_init, cv::Rect2d bbox_init, cv::Mat frame);
+            void update_tracker(cv::Mat frame);
+            void reinit(cv::Rect2d bbox_init, cv::Mat frame);
 
-        int id;
-        cv::Rect2d bbox;
-        int tracking_fail_count;
-        geometry_msgs::Point position_local;
-        cv::Scalar color;
-        bool is_track_succeed;
-        std::vector<cv::Mat> img_blocks;
-        timer time;
+            int id;
+            cv::Rect2d bbox;
+            int tracking_fail_count;
+            geometry_msgs::Point position_local;
+            cv::Scalar color;
+            bool is_track_succeed;
+            std::vector<cv::Mat> img_blocks;
+            timer time;
 
-    private:
-        bool HOG = true;
-        bool FIXEDWINDOW = true;
-        bool MULTISCALE = true;
-        bool LAB = true;
-        bool DSST = true;
+        private:
+            bool HOG = true;
+            bool FIXEDWINDOW = true;
+            bool MULTISCALE = true;
+            bool LAB = true;
+            bool DSST = true;
 
-        kcf::KCFTracker *dssttracker;
-    };
+            kcf::KCFTracker *dssttracker;
+        };
+    } // namespace tracker
 
-} //namespace ptl_tracker
+} // namespace ptl
