@@ -1,7 +1,5 @@
 data_topic:
-  lidar_topic: /livox/lidar
   camera_topic: /camera/color/image_raw/compressed
-  depth_topic: /livox/lidar
 
 cam:
   cam_net_type: "YOLOV4_TINY"

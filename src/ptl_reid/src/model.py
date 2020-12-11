@@ -1,10 +1,12 @@
 import baseline
+import reid_config
 
 
 def build_model():
     num_classes = 1
     last_stride = 1
-    pretrain_path = "/home/tim/market_resnet50_model_120_rank1_945.pth"
+    cfg = reid_config.Config()
+    pretrain_path = cfg.weights_path
     # pretrain_path = '/home/tim/duke_resnet50_model_120_rank1_864.pth'
     model_neck = 'bnneck'
     neck_feat = "after"

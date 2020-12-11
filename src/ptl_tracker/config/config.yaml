@@ -6,7 +6,6 @@ data_topic:
 tracker:
   track_fail_timeout_tick: 3
   bbox_overlap_ratio: 0.5
-  track_to_reid_bbox_margin: 0
 
 local_database:
   height_width_ratio_min: 1.0
