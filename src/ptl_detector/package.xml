@@ -8,18 +8,13 @@
 
     <buildtool_depend>catkin</buildtool_depend>
     <build_depend>roscpp</build_depend>
-    <build_depend>usfs_common</build_depend>
-    <build_depend>usfs_inference</build_depend>
     <build_depend>ptl_msgs</build_depend>
-    <!-- <build_depend>message_generation</build_depend> -->
-    <!-- <build_depend>std_msgs</build_depend>
-    <build_depend>sensor_msgs</build_depend> -->
+    <build_depend>cv_bridge</build_depend>
+    <build_depend>image_transport</build_depend>
     
     <exec_depend>roscpp</exec_depend>
-    <exec_depend>usfs_common</exec_depend>
-    <exec_depend>usfs_inference</exec_depend>
     <exec_depend>ptl_msgs</exec_depend>
-    <!-- <exec_depend>message_runtime</exec_depend> -->
-    <!-- <exec_depend>std_msgs</exec_depend>
-    <exec_depend>sensor_msgs</exec_depend> -->
+    <exec_depend>message_runtime</exec_depend>
+    <exec_depend>cv_bridge</exec_depend>
+    <exec_depend>image_transport</exec_depend>
 </package>
