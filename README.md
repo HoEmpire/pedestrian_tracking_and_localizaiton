@@ -134,6 +134,7 @@ The config files of each package can be found in `${PROJECT_NAME}/config/config.
 ### 3. Run
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 ```shell
 cd ptl_ws
 source devel/setup.zsh
@@ -142,6 +143,8 @@ roslaunch ptl_detector detector
 roslaunch ptl_reid reid.py
 ```
 =======
+=======
+>>>>>>> f9796e9de8333bd7bae86a7cc5c20d3093e7e48c
   ```shell
   cd ptl_ws
   source devel/setup.zsh
@@ -149,6 +152,9 @@ roslaunch ptl_reid reid.py
   roslaunch ptl_detector detector
   roslaunch ptl_reid reid.py
   ```
+<<<<<<< HEAD
+>>>>>>> f9796e9de8333bd7bae86a7cc5c20d3093e7e48c
+=======
 >>>>>>> f9796e9de8333bd7bae86a7cc5c20d3093e7e48c
 
 - **tips**
