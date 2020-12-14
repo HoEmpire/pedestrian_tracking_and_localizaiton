@@ -30,7 +30,7 @@ void DataProcessHub::image_callback(const sensor_msgs::CompressedImageConstPtr &
 {
     cv_bridge::CvImagePtr cv_ptr;
     cv::Mat image_detection_result;
-    cv_ptr = cv_bridge::toCvCopy(msg_img, sensor_msgs::image_encodings::RGB8);
+    cv_ptr = cv_bridge::toCvCopy(msg_img, sensor_msgs::image_encodings::BGR8);
     m_detector.detect_pedestrain(cv_ptr->image);
 
     //publish detection results for visualization

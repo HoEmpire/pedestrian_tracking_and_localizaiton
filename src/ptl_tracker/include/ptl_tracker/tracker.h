@@ -13,7 +13,9 @@
 #include "opentracker/kcf/kcftracker.hpp"
 
 #include "ptl_tracker/local_object.h"
+#include "ptl_tracker/util.h"
 #include "ptl_msgs/ImageBlock.h"
+#include "ptl_msgs/ReidInfo.h"
 
 namespace ptl
 {
@@ -27,6 +29,7 @@ namespace ptl
         private:
             void detector_result_callback(const ptl_msgs::ImageBlockPtr &msg);
             void data_callback(const sensor_msgs::CompressedImageConstPtr &msg);
+            void reid_callback(const ptl_msgs::ReidInfo &msg);
             bool bbox_matching(cv::Rect2d track_bbox, cv::Rect2d detect_bbox);
             void load_config(ros::NodeHandle *n);
             bool update_local_database(std::vector<LocalObject>::iterator local_object, const cv::Mat img_block);
@@ -40,8 +43,9 @@ namespace ptl
             int id;
             ros::NodeHandle *nh_;
             ros::Publisher m_track_vis_pub, m_track_to_reid_pub;
-            ros::Subscriber m_detector_sub, m_data_sub;
+            ros::Subscriber m_detector_sub, m_data_sub, m_reid_sub;
             std::mutex mtx;
+            struct ReidInfo reid_infos;
 
             std::string lidar_topic, camera_topic, depth_topic;
             int track_fail_timeout_tick = 30;

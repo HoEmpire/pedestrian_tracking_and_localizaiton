@@ -5,6 +5,7 @@ import torch
 from cv_bridge import CvBridge
 
 from ptl_msgs.msg import DeadTracker
+from ptl_msgs.msg import ReidInfo
 from std_msgs.msg import Int16
 import rospy
 from cv2 import cv2 as cv2
@@ -20,12 +21,15 @@ class ReIDNode():
         start = time.time()
         self.model = model.build_model()
         self.database = reid_database.ReIDDatabase()
-        rospy.init_node('ReID', anonymous=True)
+        rospy.init_node('ptl_reid', anonymous=True)
         rospy.Subscriber('/ptl_tracker/tracker_to_reid',
                          DeadTracker,
                          self.tracker_loginfo_callback,
                          None,
                          queue_size=10)
+        self.tracker_pub = rospy.Publisher('/ptl_reid/reid_to_tracker',
+                                           ReidInfo,
+                                           queue_size=10)
         rospy.loginfo("Load ReID net successfully!")
         rospy.loginfo("Init takes %f seconds", time.time() - start)
         rospy.spin()
@@ -48,6 +52,7 @@ class ReIDNode():
 
             query_img_list.append(img_block)
 
+        pub_msg = ReidInfo()
         # process img for query
         if len(query_img_list) != 0:
             start = time.time()
@@ -55,7 +60,8 @@ class ReIDNode():
             rospy.loginfo("Calculating features takes %f seconds",
                           time.time() - start)
             start = time.time()
-            self.query(feats_query)
+            pub_msg.last_query_id = self.query(feats_query)
+            pub_msg.total_num = self.database.object_num
             rospy.loginfo("Query takes %f seconds", time.time() - start)
 
         # summary
@@ -65,6 +71,8 @@ class ReIDNode():
             rospy.loginfo("object id: %d | feat num: %d", i, ob.feats.shape[0])
         rospy.loginfo("***********************")
         rospy.loginfo(" ")
+
+        self.tracker_pub.publish(pub_msg)
 
     def cal_feat(self, img_block):
         initial_flag = False

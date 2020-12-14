@@ -1,4 +1,6 @@
-# pedestrian_tracking_and_localizaiton
+# pedestrian tracking and localizaiton
+
+<div align=center><img width="480" height="360" src="img/demo.gif"/></div>
 
 ## Content
 
@@ -131,13 +133,13 @@ The config files of each package can be found in `${PROJECT_NAME}/config/config.
 
 ### 3. Run
 
-    ```shell
-    cd ptl_ws
-    source devel/setup.zsh
-    roslaunch ptl_tracker tracker
-    roslaunch ptl_detector detector
-    roslaunch ptl_reid reid.py
-    ```
+```shell
+cd ptl_ws
+source devel/setup.zsh
+roslaunch ptl_tracker tracker
+roslaunch ptl_detector detector
+roslaunch ptl_reid reid.py
+```
 
 - **tips**
   - Make sure the reid.py is run in the environment of python3. You can check [here](https://blog.csdn.net/weixin_42675603/article/details/107785376)(in Chinese) for some guide.

@@ -10,5 +10,5 @@ cam:
   cam_prob_threshold: 0.6
   cam_min_width: 80
   cam_max_width: 640
-  cam_min_height: 80
+  cam_min_height: 150
   cam_max_height: 480

@@ -1,5 +1,4 @@
 #include "ptl_tracker/tracker.h"
-#include "ptl_tracker/util.h"
 #include "ptl_msgs/DeadTracker.h"
 
 using cv::Mat;
@@ -22,6 +21,7 @@ namespace ptl
             m_track_to_reid_pub = n->advertise<ptl_msgs::DeadTracker>("tracker_to_reid", 1);
             m_detector_sub = n->subscribe("/ptl_detector/detector_to_tracker", 1, &TrackerInterface::detector_result_callback, this);
             m_data_sub = n->subscribe(camera_topic, 1, &TrackerInterface::data_callback, this);
+            m_reid_sub = n->subscribe("/ptl_reid/reid_to_tracker", 1, &TrackerInterface::reid_callback, this);
         }
 
         void TrackerInterface::detector_result_callback(const ptl_msgs::ImageBlockPtr &msg)
@@ -148,12 +148,16 @@ namespace ptl
             {
                 if (lo.is_track_succeed)
                 {
-                    std::string text;
-                    text = "id: " + std::to_string(lo.id);
+                    // std::string text;
+                    // text = "id: " + std::to_string(lo.id);
                     cv::rectangle(track_vis, lo.bbox, lo.color, 4.0);
-                    cv::putText(track_vis, text, cv::Point(lo.bbox.x, lo.bbox.y), cv::FONT_HERSHEY_COMPLEX, 1.5, lo.color, 5.0);
+                    // cv::putText(track_vis, text, cv::Point(lo.bbox.x, lo.bbox.y), cv::FONT_HERSHEY_COMPLEX, 1.5, lo.color, 4.0);
                 }
             }
+            std::string reid_infos_text;
+            reid_infos_text = "Total: " + std::to_string(reid_infos.total_num) +
+                              "  Last Id: " + std::to_string(reid_infos.last_query_id);
+            cv::putText(track_vis, reid_infos_text, cv::Point(50, 50), cv::FONT_HERSHEY_COMPLEX, 1.5, cv::Scalar(0, 0, 255), 3.0);
             m_track_vis_pub.publish(cv_bridge::CvImage(std_msgs::Header(), "bgr8", track_vis).toImageMsg());
 
             //summary
@@ -167,6 +171,12 @@ namespace ptl
 
             ROS_INFO("******Out of Data Callback******");
             std::cout << std::endl;
+        }
+
+        void TrackerInterface::reid_callback(const ptl_msgs::ReidInfo &msg)
+        {
+            reid_infos.total_num = msg.total_num;
+            reid_infos.last_query_id = msg.last_query_id;
         }
 
         //TODO might use better matching strategies
@@ -184,7 +194,6 @@ namespace ptl
 
             GPARAM(n, "/tracker/track_fail_timeout_tick", track_fail_timeout_tick);
             GPARAM(n, "/tracker/bbox_overlap_ratio", bbox_overlap_ratio);
-            GPARAM(n, "/tracker/track_to_reid_bbox_margin", track_to_reid_bbox_margin);
 
             GPARAM(n, "/local_database/height_width_ratio_min", height_width_ratio_min);
             GPARAM(n, "/local_database/height_width_ratio_max", height_width_ratio_max);
