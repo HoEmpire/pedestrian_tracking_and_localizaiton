@@ -136,6 +136,7 @@ The config files of each package can be found in `${PROJECT_NAME}/config/config.
 ```shell
 cd ptl_ws
 source devel/setup.zsh
+sudo chmod +x src/pedestrain_tracking_and_localizaiton/src/ptl_reid/src/ptl_reid.py
 roslaunch ptl_tracker tracker
 roslaunch ptl_detector detector
 roslaunch ptl_reid reid.py
