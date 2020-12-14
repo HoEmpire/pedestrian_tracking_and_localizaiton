@@ -135,6 +135,7 @@ The config files of each package can be found in `${PROJECT_NAME}/config/config.
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 ```shell
 cd ptl_ws
 source devel/setup.zsh
@@ -145,6 +146,8 @@ roslaunch ptl_reid reid.py
 =======
 =======
 >>>>>>> f9796e9de8333bd7bae86a7cc5c20d3093e7e48c
+=======
+>>>>>>> f9796e9
   ```shell
   cd ptl_ws
   source devel/setup.zsh
@@ -153,9 +156,12 @@ roslaunch ptl_reid reid.py
   roslaunch ptl_reid reid.py
   ```
 <<<<<<< HEAD
+<<<<<<< HEAD
 >>>>>>> f9796e9de8333bd7bae86a7cc5c20d3093e7e48c
 =======
 >>>>>>> f9796e9de8333bd7bae86a7cc5c20d3093e7e48c
+=======
+>>>>>>> f9796e9
 
 - **tips**
   - Make sure the reid.py is run in the environment of python3. You can check [here](https://blog.csdn.net/weixin_42675603/article/details/107785376)(in Chinese) for some guide.
