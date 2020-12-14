@@ -13,6 +13,7 @@ class Config():
         self.batch_ratio = data['batch_ratio']
         self.object_img_num = data['object_img_num']
         self.weights_path = data['weights_path']
+        self.query_batch_size = data['query_batch_size']
         f.close()
 
 
@@ -23,3 +24,4 @@ if __name__ == "__main__":
     print(cfg.batch_ratio)
     print(cfg.object_img_num)
     print(cfg.weights_path)
+    print(cfg.query_batch_size)

@@ -123,6 +123,7 @@ The config files of each package can be found in `${PROJECT_NAME}/config/config.
   batch_ratio: 0.5
   object_img_num: 30
   weights_path: "/home/tim/market_resnet50_model_120_rank1_945.pth"
+  query_batch_size: 10
   ```
 
   - **similarity_test_threshold**: when updating the database, if the minimal distance score between the query image and gallery images is smaller than this value, we will not add this query image to the database (to maintain adequate differnce in the database of an object)
@@ -130,6 +131,7 @@ The config files of each package can be found in `${PROJECT_NAME}/config/config.
   - **batch_ratio**: in an image batch from an object, if the number of images assigned with the same id after re-identification, is bigger than the batch_ratio times the total number of images in this batch, we consider this object is the object already in the database. Otherwise, we will take it as a new object.
   - **object_img_num**: the maximal number of images stored in the database for one object
   - **weights_path**: the path of the weights of the re-identification net
+  - **query_batch_size**: the batch size in query, larger GPU can process with larger batch size, and the larger batch size leads to higher efficency
 
 ### 3. Run
 

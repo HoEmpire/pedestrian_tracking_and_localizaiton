@@ -1,5 +1,6 @@
 similarity_test_threshold: 100.0
-same_id_threshold: 550.0
-batch_ratio: 0.5
+same_id_threshold: 450.0
+batch_ratio: 0.4
 object_img_num: 30
 weights_path: "/home/tim/market_resnet50_model_120_rank1_945.pth"
+query_batch_size: 20

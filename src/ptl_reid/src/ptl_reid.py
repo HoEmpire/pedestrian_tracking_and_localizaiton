@@ -75,18 +75,25 @@ class ReIDNode():
         self.tracker_pub.publish(pub_msg)
 
     def cal_feat(self, img_block):
-        initial_flag = False
-        for ib in img_block:
-            if initial_flag == False:
+        for (i, ib) in enumerate(img_block):
+            if ('input_tensor' not in dir()):
                 input_tensor = torch.from_numpy(ib).unsqueeze(0).float()
                 initial_flag = True
             else:
                 input_tensor = torch.cat(
                     (input_tensor, torch.from_numpy(ib).unsqueeze(0).float()),
                     0)
-        with torch.no_grad():
-            input_tensor_cuda = input_tensor.cuda()
-            feats = self.model(input_tensor_cuda)
+            if ((i + 1) % self.database.cfg.query_batch_size
+                    == 0) | (i + 1 == len(img_block)):
+                with torch.no_grad():
+                    input_tensor_cuda = input_tensor.cuda()
+                    if ('feats' not in dir()):
+                        feats = self.model(input_tensor_cuda).cpu()
+                    else:
+                        torch.cat((feats, self.model(input_tensor_cuda).cpu()),
+                                  0)
+                del input_tensor
+                initial_flag = False
         return feats
 
     def query(self, feats):
@@ -99,8 +106,8 @@ class ReIDNode():
             rank = np.argsort(distmat, axis=1)
             ids = []
             for (r, dis) in zip(rank, distmat):
-                # rospy.loginfo("In query:")
-                # rospy.loginfo(dis[r])
+                rospy.loginfo("In query:")
+                rospy.loginfo(dis[r])
                 if dis[r[0]] < self.database.cfg.same_id_threshold:
                     ids.append(self.database.feat_id_list[r[0]])
                 else:
