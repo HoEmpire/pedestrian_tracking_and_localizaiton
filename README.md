@@ -1,8 +1,10 @@
 # pedestrian tracking and localizaiton
 
 <div align=center><img width="480" height="360" src="img/demo.gif"/></div>
+<div align=center>two people example</div>
 
-<div align=center><img width="480" height="270" src="https://github.com/HoEmpire/demo-images-and-gifs/blob/main/pedestrian_tracking_and_localization/demo_6p.gif"/></div>
+<div align=center><img width="640" height="360" src="https://github.com/HoEmpire/demo-images-and-gifs/blob/main/pedestrian_tracking_and_localization/demo_6p.gif"/></div>
+<div align=center>six people example</div>
 
 ## Content
 
