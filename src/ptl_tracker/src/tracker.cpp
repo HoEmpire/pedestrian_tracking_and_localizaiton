@@ -1,3 +1,5 @@
+#include <algorithm>
+
 #include "ptl_tracker/tracker.h"
 #include "ptl_msgs/DeadTracker.h"
 
@@ -37,39 +39,42 @@ namespace ptl
             lock_guard<mutex> lk(mtx); //加锁pub
             vector<std_msgs::UInt16MultiArray> bboxs = msg->bboxs;
 
-            bool erase_flag = false;
             bool is_blur = blur_detection(cv_ptr->image);
             if (!local_objects_list.empty())
             {
                 for (auto b = bboxs.begin(); b != bboxs.end();)
                 {
-                    for (auto lo = local_objects_list.begin(); lo != local_objects_list.end(); lo++)
+                    int id_max = -1;
+                    double bbox_overlap_ratio_max = 0.0;
+                    ROS_INFO("Deal with bboxs...");
+                    for (int i = 0; i < local_objects_list.size(); i++)
                     {
-                        if (bbox_matching(lo->bbox, Rect2d(b->data[0], b->data[1], b->data[2], b->data[3])))
+                        double bbox_overlap_ratio_tmp = bbox_matching(local_objects_list[i].bbox, Rect2d(b->data[0], b->data[1], b->data[2], b->data[3]));
+                        ROS_INFO_STREAM("Bbox overlap ratio: " << bbox_overlap_ratio_tmp);
+                        if (bbox_overlap_ratio_tmp > bbox_overlap_ratio && bbox_overlap_ratio_tmp > bbox_overlap_ratio_max)
                         {
-                            ROS_INFO_STREAM("Object " << lo->id << " re-detected!");
-                            lo->reinit(Rect2d(b->data[0], b->data[1], b->data[2], b->data[3]), cv_ptr->image); //TODO might try to improve efficiency in here
-                            b = bboxs.erase(b);                                                                //删除该对象
-                            erase_flag = true;
-
-                            //update database
-                            if (!is_blur)
-                            {
-                                // ROS_WARN("Update database in detector callback");
-                                cv::Mat image_block = cv_ptr->image(lo->bbox);
-                                update_local_database(lo, image_block);
-                            }
-
-                            break;
+                            id_max = i;
+                            bbox_overlap_ratio_max = bbox_overlap_ratio_tmp;
                         }
                     }
-                    if (erase_flag == false)
+
+                    if (id_max != -1)
                     {
-                        b++;
+                        ROS_INFO_STREAM("Object " << id_max << " re-detected!");
+                        local_objects_list[id_max].reinit(Rect2d(b->data[0], b->data[1], b->data[2], b->data[3]), cv_ptr->image); //TODO might try to improve efficiency in here
+                        b = bboxs.erase(b);                                                                                       //删除该对象
+
+                        //update database
+                        if (!is_blur)
+                        {
+                            // ROS_WARN("Update database in detector callback");
+                            cv::Mat image_block = cv_ptr->image(local_objects_list[id_max].bbox);
+                            update_local_database(local_objects_list[id_max], image_block);
+                        }
                     }
                     else
                     {
-                        erase_flag = false;
+                        b++;
                     }
                 }
             }
@@ -81,14 +86,13 @@ namespace ptl
                 {
                     ROS_INFO_STREAM("Adding Tracking Object with ID:" << id);
                     LocalObject new_object(id++, Rect2d(b.data[0], b.data[1], b.data[2], b.data[3]), cv_ptr->image);
-                    local_objects_list.push_back(new_object);
                     //update database
                     if (!is_blur)
                     {
-                        vector<LocalObject>::iterator lo = local_objects_list.end() - 1;
-                        cv::Mat image_block = cv_ptr->image(lo->bbox);
-                        update_local_database(lo, image_block);
+                        cv::Mat image_block = cv_ptr->image(new_object.bbox);
+                        update_local_database(new_object, image_block);
                     }
+                    local_objects_list.push_back(new_object);
                 }
             }
 
@@ -180,10 +184,10 @@ namespace ptl
         }
 
         //TODO might use better matching strategies
-        bool TrackerInterface::bbox_matching(Rect2d track_bbox, Rect2d detect_bbox)
+        double TrackerInterface::bbox_matching(Rect2d track_bbox, Rect2d detect_bbox)
         {
-            return ((track_bbox & detect_bbox).area() / track_bbox.area() > bbox_overlap_ratio) ||
-                   ((track_bbox & detect_bbox).area() / detect_bbox.area() > bbox_overlap_ratio);
+            return std::max((track_bbox & detect_bbox).area() / track_bbox.area(),
+                            (track_bbox & detect_bbox).area() / detect_bbox.area());
         }
 
         void TrackerInterface::load_config(ros::NodeHandle *n)
@@ -215,7 +219,22 @@ namespace ptl
             return sigma.val[0] * sigma.val[0] < blur_detection_threshold;
         }
 
-        bool TrackerInterface::update_local_database(vector<LocalObject>::iterator local_object, const cv::Mat img_block)
+        bool TrackerInterface::update_local_database(LocalObject local_object, const cv::Mat img_block)
+        {
+            if (1.0 * img_block.rows / img_block.cols > height_width_ratio_min && 1.0 * img_block.rows / img_block.cols < height_width_ratio_max && local_object.time.toc() > record_interval)
+            {
+                local_object.img_blocks.push_back(img_block);
+                local_object.time.tic();
+                ROS_INFO_STREAM("Adding an image to the datebase id: " << local_object.id);
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        bool TrackerInterface::update_local_database(std::vector<LocalObject>::iterator local_object, const cv::Mat img_block)
         {
             if (1.0 * img_block.rows / img_block.cols > height_width_ratio_min && 1.0 * img_block.rows / img_block.cols < height_width_ratio_max && local_object->time.toc() > record_interval)
             {

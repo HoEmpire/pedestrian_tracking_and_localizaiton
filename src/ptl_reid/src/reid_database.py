@@ -13,6 +13,9 @@ class Object():
     def add_feat(self, feat):
         feat.feats = torch.cat((self.feats, feat), 0)
 
+    def add_example_img(self, img):
+        self.img = img
+
 
 class ReIDDatabase():
     def __init__(self):

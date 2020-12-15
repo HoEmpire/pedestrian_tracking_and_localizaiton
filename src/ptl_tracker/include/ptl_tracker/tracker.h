@@ -30,8 +30,9 @@ namespace ptl
             void detector_result_callback(const ptl_msgs::ImageBlockPtr &msg);
             void data_callback(const sensor_msgs::CompressedImageConstPtr &msg);
             void reid_callback(const ptl_msgs::ReidInfo &msg);
-            bool bbox_matching(cv::Rect2d track_bbox, cv::Rect2d detect_bbox);
+            double bbox_matching(cv::Rect2d track_bbox, cv::Rect2d detect_bbox);
             void load_config(ros::NodeHandle *n);
+            bool update_local_database(LocalObject local_object, const cv::Mat img_block);
             bool update_local_database(std::vector<LocalObject>::iterator local_object, const cv::Mat img_block);
 
         public:
