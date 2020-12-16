@@ -93,7 +93,7 @@ namespace ptl
                 for (auto b : bboxs)
                 {
                     ROS_INFO_STREAM("Adding Tracking Object with ID:" << id);
-                    LocalObject new_object(id++, Rect2d(b.data[0], b.data[1], b.data[2], b.data[3]), cv_ptr->image);
+                    LocalObject new_object(id++, Rect2d(b.data[0], b.data[1], b.data[2], b.data[3]), cv_ptr->image, tracker_success_threshold);
                     //update database
                     if (!is_blur)
                     {
@@ -145,7 +145,7 @@ namespace ptl
                 lo->update_tracker(cv_ptr->image);
 
                 //update database
-                if (!is_blur)
+                if (!is_blur && lo->is_track_succeed)
                 {
                     // ROS_WARN("Update database in data callback");
                     cv::Mat image_block = cv_ptr->image(lo->bbox & block_max);
@@ -206,6 +206,7 @@ namespace ptl
 
             GPARAM(n, "/tracker/track_fail_timeout_tick", track_fail_timeout_tick);
             GPARAM(n, "/tracker/bbox_overlap_ratio", bbox_overlap_ratio);
+            GPARAM(n, "/tracker/tracker_success_threshold", tracker_success_threshold);
 
             GPARAM(n, "/local_database/height_width_ratio_min", height_width_ratio_min);
             GPARAM(n, "/local_database/height_width_ratio_max", height_width_ratio_max);

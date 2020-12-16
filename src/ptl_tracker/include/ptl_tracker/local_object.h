@@ -15,7 +15,7 @@ namespace ptl
         class LocalObject
         {
         public:
-            LocalObject(int id_init, cv::Rect2d bbox_init, cv::Mat frame);
+            LocalObject(int id_init, cv::Rect2d bbox_init, cv::Mat frame, float tracker_success_param = 0.5);
             void update_tracker(cv::Mat frame);
             void reinit(cv::Rect2d bbox_init, cv::Mat frame);
 
@@ -34,6 +34,7 @@ namespace ptl
             bool MULTISCALE = true;
             bool LAB = true;
             bool DSST = true;
+            float tracker_success_threshold;
 
             kcf::KCFTracker *dssttracker;
         };

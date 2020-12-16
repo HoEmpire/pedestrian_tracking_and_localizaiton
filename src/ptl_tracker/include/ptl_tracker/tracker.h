@@ -57,6 +57,7 @@ namespace ptl
             float blur_detection_threshold = 160.0;
             float record_interval = 0.1;
             int batch_num_min = 3;
+            float tracker_success_threshold = 0.2;
         };
     } // namespace tracker
 

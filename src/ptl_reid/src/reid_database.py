@@ -3,6 +3,7 @@ import numpy as np
 import rospy
 from inference import cal_dis
 from reid_config import Config
+from random import shuffle
 
 
 class Object():
@@ -41,15 +42,19 @@ class ReIDDatabase():
         return self.object_num - 1
 
     def add_new_feat(self, feats, id):
-        for f in feats:
+        indexs = [i for i in range(feats.shape[0])]
+        shuffle(indexs)
+        for i in indexs:
+            f = feats[i]
             distmat = cal_dis(f.unsqueeze(0), self.object_list[id].feats)
             rank = np.argsort(distmat, axis=1).squeeze(0)
             # rospy.loginfo("In add new features of id: %d", id)
-            # rospy.loginfo(distmat[0][rank])
-            if (self.cfg.similarity_test_threshold < distmat[0][rank[0]] <
-                    self.cfg.same_id_threshold) & (
-                        self.object_list[id].feats.shape[0] <=
-                        self.cfg.object_img_num):
+            # rospy.loginfo(distmat[0][rank[0]])
+            # TODO hardcode in here
+            if ((self.cfg.similarity_test_threshold < distmat[0][rank[0]] <
+                 self.cfg.same_id_threshold) &
+                (self.object_list[id].feats.shape[0] < self.cfg.object_img_num)
+                ) | (self.object_list[id].feats.shape[0] <= 5):
                 rospy.loginfo("adding new feature to id:%d", id)
                 # update global database
                 self.feat_all = torch.cat((self.feat_all, f.unsqueeze(0)), 0)

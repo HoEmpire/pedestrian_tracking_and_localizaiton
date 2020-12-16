@@ -3,12 +3,14 @@ namespace ptl
 {
     namespace tracker
     {
-        LocalObject::LocalObject(int id_init, cv::Rect2d bbox_init, cv::Mat frame)
+        LocalObject::LocalObject(int id_init, cv::Rect2d bbox_init, cv::Mat frame, float tracker_success_param)
         {
             id = id_init;
             bbox = bbox_init;
+            tracker_success_threshold = tracker_success_param;
             tracking_fail_count = 0;
             dssttracker = new kcf::KCFTracker(HOG, FIXEDWINDOW, MULTISCALE, LAB, DSST);
+            dssttracker->detect_thresh_dsst = tracker_success_threshold;
             dssttracker->init(frame, bbox);
             cv::RNG rng(std::time(0));
             color = cv::Scalar(rng.uniform(0, 255), rng.uniform(0, 255), rng.uniform(0, 255));
@@ -34,6 +36,7 @@ namespace ptl
             bbox = bbox_init;
             tracking_fail_count = 0;
             dssttracker = new kcf::KCFTracker(HOG, FIXEDWINDOW, MULTISCALE, LAB, DSST);
+            dssttracker->detect_thresh_dsst = tracker_success_threshold;
             dssttracker->init(frame, bbox);
         }
 
