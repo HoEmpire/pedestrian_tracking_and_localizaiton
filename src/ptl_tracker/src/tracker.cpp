@@ -44,6 +44,7 @@ namespace ptl
             {
                 for (auto b = bboxs.begin(); b != bboxs.end();)
                 {
+                    int possible_matched_bbox_count = 0;
                     int id_max = -1;
                     double bbox_overlap_ratio_max = 0.0;
                     ROS_INFO("Deal with bboxs...");
@@ -51,26 +52,33 @@ namespace ptl
                     {
                         double bbox_overlap_ratio_tmp = bbox_matching(local_objects_list[i].bbox, Rect2d(b->data[0], b->data[1], b->data[2], b->data[3]));
                         ROS_INFO_STREAM("Bbox overlap ratio: " << bbox_overlap_ratio_tmp);
-                        if (bbox_overlap_ratio_tmp > bbox_overlap_ratio && bbox_overlap_ratio_tmp > bbox_overlap_ratio_max)
+                        if (bbox_overlap_ratio_tmp > bbox_overlap_ratio)
                         {
-                            id_max = i;
-                            bbox_overlap_ratio_max = bbox_overlap_ratio_tmp;
+                            ++possible_matched_bbox_count;
+                            if (bbox_overlap_ratio_tmp > bbox_overlap_ratio_max)
+                            {
+                                id_max = i;
+                                bbox_overlap_ratio_max = bbox_overlap_ratio_tmp;
+                            }
                         }
                     }
 
                     if (id_max != -1)
                     {
-                        ROS_INFO_STREAM("Object " << id_max << " re-detected!");
-                        local_objects_list[id_max].reinit(Rect2d(b->data[0], b->data[1], b->data[2], b->data[3]), cv_ptr->image); //TODO might try to improve efficiency in here
-                        b = bboxs.erase(b);                                                                                       //删除该对象
 
-                        //update database
-                        if (!is_blur)
+                        if (possible_matched_bbox_count == 1)
                         {
-                            // ROS_WARN("Update database in detector callback");
-                            cv::Mat image_block = cv_ptr->image(local_objects_list[id_max].bbox);
-                            update_local_database(local_objects_list[id_max], image_block);
+                            ROS_INFO_STREAM("Object " << id_max << " re-detected!");
+                            local_objects_list[id_max].reinit(Rect2d(b->data[0], b->data[1], b->data[2], b->data[3]), cv_ptr->image); //only one matched bbox
+                                                                                                                                      //update database
+                            if (!is_blur)
+                            {
+                                // ROS_WARN("Update database in detector callback");
+                                cv::Mat image_block = cv_ptr->image(local_objects_list[id_max].bbox);
+                                update_local_database(local_objects_list[id_max], image_block);
+                            }
                         }
+                        b = bboxs.erase(b); //删除该对象
                     }
                     else
                     {
