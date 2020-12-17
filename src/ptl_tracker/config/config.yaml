@@ -4,13 +4,13 @@ data_topic:
   depth_topic: /livox/lidar
 
 tracker:
-  track_fail_timeout_tick: 1
+  track_fail_timeout_tick: 2
   bbox_overlap_ratio: 0.4
-  tracker_success_threshold: 0.2
+  tracker_success_threshold: 0.17
 
 local_database:
-  height_width_ratio_min: 1.0
+  height_width_ratio_min: 0.85
   height_width_ratio_max: 3.0
   blur_detection_threshold: 120.0
   record_interval: 0.1
-  batch_num_min: 5
+  batch_num_min: 10

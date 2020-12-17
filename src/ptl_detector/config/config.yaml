@@ -7,8 +7,8 @@ cam:
   cam_file_model_weights: "/asset/yolov4-tiny.weights"
   cam_inference_precison: "FP32"
   cam_n_max_batch: 1
-  cam_prob_threshold: 0.5
+  cam_prob_threshold: 0.65
   cam_min_width: 120
-  cam_max_width: 320
-  cam_min_height: 160
+  cam_max_width: 400
+  cam_min_height: 150
   cam_max_height: 480

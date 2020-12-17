@@ -34,6 +34,7 @@ namespace ptl
             cv_bridge::CvImagePtr cv_ptr;
             cv::Mat image_detection_result;
             cv_ptr = cv_bridge::toCvCopy(msg->img, sensor_msgs::image_encodings::BGR8);
+            cv::Rect2d block_max(cv::Point2d(0, 0), cv::Point2d(cv_ptr->image.cols - 1, cv_ptr->image.rows - 1));
 
             //match the previous one
             lock_guard<mutex> lk(mtx); //加锁pub
@@ -69,12 +70,13 @@ namespace ptl
                         if (possible_matched_bbox_count == 1)
                         {
                             ROS_INFO_STREAM("Object " << id_max << " re-detected!");
+                            // if (!local_objects_list[id_max].is_track_succeed)
                             local_objects_list[id_max].reinit(Rect2d(b->data[0], b->data[1], b->data[2], b->data[3]), cv_ptr->image); //only one matched bbox
-                                                                                                                                      //update database
+                            //update database
                             if (!is_blur)
                             {
                                 // ROS_WARN("Update database in detector callback");
-                                cv::Mat image_block = cv_ptr->image(local_objects_list[id_max].bbox);
+                                cv::Mat image_block = cv_ptr->image(local_objects_list[id_max].bbox & block_max);
                                 update_local_database(local_objects_list[id_max], image_block);
                             }
                         }

@@ -151,6 +151,10 @@ class ReIDNode():
             # get the id of this batch
             id_most_common = Counter(ids).most_common()[0][0]
             id_most_common_frequency = Counter(ids).most_common()[0][1]
+
+            rospy.loginfo("Most common id: %d, ratio %d/%d=%f", id_most_common,
+                          id_most_common_frequency, len(ids),
+                          id_most_common_frequency * 1.0 / len(ids))
             # old object
             if (id_most_common_frequency >= len(ids) *
                     self.database.cfg.batch_ratio) & (id_most_common != -1):
