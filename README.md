@@ -98,6 +98,7 @@ The config files of each package can be found in `${PROJECT_NAME}/config/config.
   tracker:
     track_fail_timeout_tick: 3
     bbox_overlap_ratio: 0.5
+    tracker_success_threshold: 0.17
 
   local_database:
     height_width_ratio_min: 1.0
@@ -107,17 +108,18 @@ The config files of each package can be found in `${PROJECT_NAME}/config/config.
     batch_num_min: 3
   ```
 
-  - **track_fail_timeout_tick**: if the tracker fails for `track_fail_timeout_tick` frames, we consider this tracker fails and remove it from the list
-  - **bbox_overlap_ratio**: if the overlapping area ratio of the bounding box from the detector and the tracker is higher than this value, we match these two bounding boxes.
+  - **track_fail_timeout_tick**: if the tracker fails for `track_fail_timeout_tick` frames, we consider this tracker fails and remove it from the list.
+  - **bbox_overlap_ratio**: if the overlapping area ratio of the bounding box(bbox) from the detector and the tracker is higher than this value, we match these two bounding boxes, and use the detector bbox to reinitialized the matched tracker. (Currectly, the detector bbox is better than the tracker.)
 
     - Overlaping area ratio is calculated by
 
       $$ratio = min(\frac{Area_{overlap}}{Area_{detector}},\frac{Area_{overlap}}{Area_{detector}})$$
 
-  - **height_width_ratio_min/max**: only the image block with height/width fails in the range of (height_width_ratio_min, height_width_ratio_max) will be added into the local database
-  - **blur_detection_threshold**: if the image blur detection score is lower than this value, we will discard this image
-  - **record_interval**: the unit is second. It defines the minimum time interval between two images in a local database
-  - **batch_num_min**: if the number of images in the local database is smaller than this value, we will not perform re-identification of this object (remove false-positive in detection)
+  - **tracker_success_threshold**: if this value is higher, the tracker will tend to lose track easier. If the tracker can not report tracking lost properly, you might want to increase this value to guarantee in-time tracking lost report.
+  - **height_width_ratio_min/max**: only the image block with height/width falls in the range of (height_width_ratio_min, height_width_ratio_max) will be added into the local database.
+  - **blur_detection_threshold**: if the image blur detection score is lower than this value, we will discard this image for local database maintainance.
+  - **record_interval**: the unit is second. It defines the minimum time interval between two recorded images in a local database.
+  - **batch_num_min**: if the number of images in the local database is smaller than this value, we will not perform re-identification of this object(remove possible false-positive in detection).
 
 - ptl_reid
 
@@ -132,10 +134,10 @@ The config files of each package can be found in `${PROJECT_NAME}/config/config.
 
   - **similarity_test_threshold**: when updating the database, if the minimal distance score between the query image and gallery images is smaller than this value, we will not add this query image to the database (to maintain adequate differnce in the database of an object)
   - **same_id_threshold**: when querying the database, if the minimal distance score between the query image and gallery images is bigger than this value, we will consider this query image comes from a new object; Or else we consider it belongs to one of the objects in the database
-  - **batch_ratio**: in an image batch from an object, if the number of images assigned with the same id after re-identification, is bigger than the batch_ratio times the total number of images in this batch, we consider this object is the object already in the database. Otherwise, we will take it as a new object.
+  - **batch_ratio**: in a image batch from a query object, if the number of images assigned with the same id after re-identification, is bigger than the batch_ratio times the total number of images in this batch, we consider this object is the object already in the database. Otherwise, we will take it as a new object.
   - **object_img_num**: the maximal number of images stored in the database for one object
   - **weights_path**: the path of the weights of the re-identification net
-  - **query_batch_size**: the batch size in query, larger GPU can process with larger batch size, and the larger batch size leads to higher efficency
+  - **query_batch_size**: the batch size in the query, larger GPU can process with larger batch size, and the larger batch size generally leads to higher efficiency (but you also need to consider the time of data transition between GPU and CPU).
 
 ### 3. Run
 
