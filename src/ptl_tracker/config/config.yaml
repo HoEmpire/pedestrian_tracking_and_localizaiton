@@ -1,16 +1,17 @@
 data_topic:
   lidar_topic: /livox/lidar
-  camera_topic: /camera/color/image_raw/compressed
+  camera_topic: /camera2/color/image_raw/compressed
   depth_topic: /livox/lidar
 
 tracker:
-  track_fail_timeout_tick: 2
-  bbox_overlap_ratio: 0.4
-  tracker_success_threshold: 0.17
+  track_fail_timeout_tick: 5
+  bbox_overlap_ratio: 0.05
+  tracker_success_threshold: 0.48
+  overlap_count: 10
 
 local_database:
   height_width_ratio_min: 0.85
-  height_width_ratio_max: 3.0
+  height_width_ratio_max: 4.0
   blur_detection_threshold: 120.0
-  record_interval: 0.1
-  batch_num_min: 10
+  record_interval: 0.01
+  batch_num_min: 15

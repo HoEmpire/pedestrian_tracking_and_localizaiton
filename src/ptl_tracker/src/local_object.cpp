@@ -9,8 +9,17 @@ namespace ptl
             bbox = bbox_init;
             tracker_success_threshold = tracker_success_param;
             tracking_fail_count = 0;
+            overlap_count = 0;
             dssttracker = new kcf::KCFTracker(HOG, FIXEDWINDOW, MULTISCALE, LAB, DSST);
-            dssttracker->detect_thresh_dsst = tracker_success_threshold;
+            if (DSST)
+            {
+                dssttracker->detect_thresh_dsst = tracker_success_threshold;
+            }
+            else
+            {
+                dssttracker->detect_thresh_kcf = tracker_success_threshold;
+            }
+
             dssttracker->init(frame, bbox);
             cv::RNG rng(std::time(0));
             color = cv::Scalar(rng.uniform(0, 255), rng.uniform(0, 255), rng.uniform(0, 255));
@@ -36,7 +45,14 @@ namespace ptl
             bbox = bbox_init;
             tracking_fail_count = 0;
             dssttracker = new kcf::KCFTracker(HOG, FIXEDWINDOW, MULTISCALE, LAB, DSST);
-            dssttracker->detect_thresh_dsst = tracker_success_threshold;
+            if (DSST)
+            {
+                dssttracker->detect_thresh_dsst = tracker_success_threshold;
+            }
+            else
+            {
+                dssttracker->detect_thresh_kcf = tracker_success_threshold;
+            }
             dssttracker->init(frame, bbox);
         }
 

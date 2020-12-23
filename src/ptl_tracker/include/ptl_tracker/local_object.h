@@ -22,6 +22,7 @@ namespace ptl
             int id;
             cv::Rect2d bbox;
             int tracking_fail_count;
+            int overlap_count;
             geometry_msgs::Point position_local;
             cv::Scalar color;
             bool is_track_succeed;
@@ -32,8 +33,8 @@ namespace ptl
             bool HOG = true;
             bool FIXEDWINDOW = true;
             bool MULTISCALE = true;
-            bool LAB = true;
-            bool DSST = true;
+            bool LAB = false;
+            bool DSST = false;
             float tracker_success_threshold;
 
             kcf::KCFTracker *dssttracker;
