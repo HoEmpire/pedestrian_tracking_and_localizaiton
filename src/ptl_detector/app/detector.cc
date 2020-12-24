@@ -16,18 +16,21 @@ private:
     ros::NodeHandle *nh_;
     ros::Publisher m_detected_result_pub, m_image_block_pub;
     ros::Subscriber m_image_sub;
+    int detector_wait_count = 0;
 };
 
 DataProcessHub::DataProcessHub(ros::NodeHandle *n)
 {
     nh_ = n;
     m_detected_result_pub = nh_->advertise<sensor_msgs::Image>("detection_result", 1);
-    m_image_block_pub = nh_->advertise<ptl_msgs::ImageBlock>("detector_to_tracker", 1);
+    m_image_block_pub = nh_->advertise<ptl_msgs::ImageBlock>("detector_to_reid", 1);
     m_image_sub = nh_->subscribe(config.camera_topic, 1, &DataProcessHub::image_callback, this);
 }
 
 void DataProcessHub::image_callback(const sensor_msgs::CompressedImageConstPtr &msg_img)
 {
+    if (detector_wait_count++ % config.detect_every_k_frames != 0)
+        return;
     cv_bridge::CvImagePtr cv_ptr;
     cv::Mat image_detection_result;
     cv_ptr = cv_bridge::toCvCopy(msg_img, sensor_msgs::image_encodings::BGR8);
@@ -60,7 +63,7 @@ void DataProcessHub::image_callback(const sensor_msgs::CompressedImageConstPtr &
     if (!m_detector.results.empty())
     {
         m_image_block_pub.publish(image_block_msg);
-        }
+    }
 }
 
 int main(int argc, char **argv)

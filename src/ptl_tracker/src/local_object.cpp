@@ -14,10 +14,12 @@ namespace ptl
             if (DSST)
             {
                 dssttracker->detect_thresh_dsst = tracker_success_threshold;
+                dssttracker->scale_step = 1;
             }
             else
             {
                 dssttracker->detect_thresh_kcf = tracker_success_threshold;
+                dssttracker->padding = 2.5;
             }
 
             dssttracker->init(frame, bbox);
@@ -48,10 +50,12 @@ namespace ptl
             if (DSST)
             {
                 dssttracker->detect_thresh_dsst = tracker_success_threshold;
+                dssttracker->scale_step = 1;
             }
             else
             {
                 dssttracker->detect_thresh_kcf = tracker_success_threshold;
+                dssttracker->padding = 2.5;
             }
             dssttracker->init(frame, bbox);
         }

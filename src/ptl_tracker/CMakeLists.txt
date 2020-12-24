@@ -27,6 +27,6 @@ include_directories(
 )
 find_library(OpenTracker_LIBS libopentracker.so /usr/local/lib)
 
-add_executable(tracker src/main.cpp src/local_object.cpp src/tracker.cpp) 
+add_executable(tracker src/local_object.cpp src/tracker.cpp src/main.cpp) 
 target_link_libraries(tracker ${catkin_LIBRARIES} ${OpenCV_LIBS} ${OpenTracker_LIBS})
 add_dependencies(tracker ptl_msgs_generate_messages_cpp)

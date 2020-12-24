@@ -1,5 +1,6 @@
-data_topic:
+basic:
   camera_topic: /camera2/color/image_raw/compressed
+  detect_every_k_frames: 5
 
 cam:
   cam_net_type: "YOLOV4_TINY"

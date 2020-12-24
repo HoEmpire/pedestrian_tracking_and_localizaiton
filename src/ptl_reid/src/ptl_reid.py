@@ -49,7 +49,7 @@ class ReIDNode():
                                    interpolation=cv2.INTER_CUBIC)
         for img in data.img_blocks:
             img_block = bridge.imgmsg_to_cv2(img, "rgb8")
-            # img_block = utils.image_block_preprocess(img_block)
+            img_block = utils.image_block_preprocess(img_block)
             img_block = cv2.resize(img_block, (128, 256),
                                    interpolation=cv2.INTER_CUBIC)
             img_block = img_block.transpose(2, 0, 1)

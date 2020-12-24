@@ -49,10 +49,11 @@ namespace ptl
                     int id_max = -1;
                     double bbox_overlap_ratio_max = 0.0;
                     ROS_INFO("Deal with bboxs...");
+                    cv::Rect2d detector_box = BboxPadding(Rect2d(b->data[0], b->data[1], b->data[2], b->data[3]), block_max, detector_bbox_padding); //TODO hardcode in here
                     // ROS_INFO_STREAM("Image info: cols: " << cv_ptr->image.cols << " , rows: " << cv_ptr->image.rows);
                     for (int i = 0; i < local_objects_list.size(); i++)
                     {
-                        double bbox_overlap_ratio_tmp = bbox_matching(local_objects_list[i].bbox, Rect2d(b->data[0], b->data[1], b->data[2], b->data[3]));
+                        double bbox_overlap_ratio_tmp = bbox_matching(local_objects_list[i].bbox, detector_box);
                         ROS_INFO_STREAM("Bbox overlap ratio: " << bbox_overlap_ratio_tmp);
                         if (bbox_overlap_ratio_tmp > bbox_overlap_ratio)
                         {
@@ -74,8 +75,8 @@ namespace ptl
                             if (local_objects_list[id_max].overlap_count == 0)
                             {
                                 ROS_INFO_STREAM("Object " << local_objects_list[id_max].id << " re-detected!");
-                                // if (!local_objects_list[id_max].is_track_succeed)
-                                local_objects_list[id_max].reinit(Rect2d(b->data[0], b->data[1], b->data[2], b->data[3]), cv_ptr->image); //only one matched bbox
+                                if (!local_objects_list[id_max].is_track_succeed)
+                                    local_objects_list[id_max].reinit(Rect2d(b->data[0], b->data[1], b->data[2], b->data[3]), cv_ptr->image); //only one matched bbox
                                 //update database
                                 if (!is_blur)
                                 {
@@ -166,16 +167,7 @@ namespace ptl
                 //     lo = local_objects_list.erase(lo);
                 //     continue;
                 // }
-                if (lo->overlap_count == 0)
-                {
-                    lo->update_tracker(cv_ptr->image);
-                }
-                else
-                {
-                    lo->is_track_succeed = false;
-                    lo->overlap_count--;
-                    continue;
-                }
+                lo->update_tracker(cv_ptr->image);
 
                 //update database
                 if (!is_blur && lo->is_track_succeed)
@@ -290,6 +282,7 @@ namespace ptl
             GPARAM(n, "/tracker/bbox_overlap_ratio", bbox_overlap_ratio);
             GPARAM(n, "/tracker/tracker_success_threshold", tracker_success_threshold);
             GPARAM(n, "/tracker/overlap_count", overlap_count);
+            GPARAM(n, "/tracker/detector_bbox_padding", detector_bbox_padding);
 
             GPARAM(n, "/local_database/height_width_ratio_min", height_width_ratio_min);
             GPARAM(n, "/local_database/height_width_ratio_max", height_width_ratio_max);

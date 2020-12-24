@@ -33,7 +33,7 @@ namespace ptl
             bool HOG = true;
             bool FIXEDWINDOW = true;
             bool MULTISCALE = true;
-            bool LAB = false;
+            bool LAB = true;
             bool DSST = false;
             float tracker_success_threshold;
 

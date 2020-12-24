@@ -59,6 +59,7 @@ namespace ptl
             int batch_num_min = 3;
             float tracker_success_threshold = 0.2;
             int overlap_count = 10;
+            int detector_bbox_padding = 10;
         };
     } // namespace tracker
 

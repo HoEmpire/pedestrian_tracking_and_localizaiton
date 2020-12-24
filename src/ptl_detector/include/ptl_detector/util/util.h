@@ -24,14 +24,16 @@ struct ConfigSetting
     float cam_prob_threshold;
     float cam_min_height = 0;
     float cam_max_height = 480;
+    int detect_every_k_frames = 5;
 
 } config;
 
 void loadConfig(ros::NodeHandle n)
 {
-    n.getParam("/data_topic/lidar_topic", config.lidar_topic);
-    n.getParam("/data_topic/camera_topic", config.camera_topic);
-    n.getParam("/data_topic/depth_topic", config.depth_topic);
+    n.getParam("/basic/lidar_topic", config.lidar_topic);
+    n.getParam("/basic/camera_topic", config.camera_topic);
+    n.getParam("/basic/depth_topic", config.depth_topic);
+    n.getParam("/basic/detect_every_k_frames", config.detect_every_k_frames);
 
     n.getParam("/cam/cam_net_type", config.cam_net_type);
     n.getParam("/cam/cam_file_model_cfg", config.cam_file_model_cfg);
