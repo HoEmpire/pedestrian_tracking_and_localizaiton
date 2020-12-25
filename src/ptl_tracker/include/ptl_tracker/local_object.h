@@ -5,6 +5,7 @@
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
 #include <ros/ros.h>
+#include <Eigen/Dense>
 
 #include "ptl_tracker/timer.hpp"
 
@@ -15,9 +16,11 @@ namespace ptl
         class LocalObject
         {
         public:
-            LocalObject(int id_init, cv::Rect2d bbox_init, cv::Mat frame, float tracker_success_param = 0.5);
+            LocalObject(int id_init, cv::Rect2d bbox_init, cv::Mat frame,
+                        Eigen::VectorXf feat, float tracker_success_param = 0.5);
             void update_tracker(cv::Mat frame);
             void reinit(cv::Rect2d bbox_init, cv::Mat frame);
+            float find_min_query_score(Eigen::VectorXf);
 
             int id;
             cv::Rect2d bbox;
@@ -27,6 +30,7 @@ namespace ptl
             cv::Scalar color;
             bool is_track_succeed;
             std::vector<cv::Mat> img_blocks;
+            std::vector<Eigen::VectorXf> features;
             timer time;
 
         private:

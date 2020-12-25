@@ -50,7 +50,7 @@ namespace ptl
 
             std::string lidar_topic, camera_topic, depth_topic;
             int track_fail_timeout_tick = 30;
-            double bbox_overlap_ratio = 0.5;
+            double bbox_overlap_ratio_threshold = 0.5;
             int track_to_reid_bbox_margin = 10;
             float height_width_ratio_min = 1.0;
             float height_width_ratio_max = 3.0;
@@ -60,6 +60,7 @@ namespace ptl
             float tracker_success_threshold = 0.2;
             int overlap_count = 10;
             int detector_bbox_padding = 10;
+            float reid_match_threshold = 200;
         };
     } // namespace tracker
 

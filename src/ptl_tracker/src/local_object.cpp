@@ -3,10 +3,17 @@ namespace ptl
 {
     namespace tracker
     {
-        LocalObject::LocalObject(int id_init, cv::Rect2d bbox_init, cv::Mat frame, float tracker_success_param)
+        inline float cal_reid_score(Eigen::VectorXf query, Eigen::VectorXf gallery)
+        {
+            return (query - gallery).squaredNorm();
+        }
+
+        LocalObject::LocalObject(int id_init, cv::Rect2d bbox_init, cv::Mat frame,
+                                 Eigen::VectorXf feat, float tracker_success_param)
         {
             id = id_init;
             bbox = bbox_init;
+            features.push_back(feat);
             tracker_success_threshold = tracker_success_param;
             tracking_fail_count = 0;
             overlap_count = 0;
@@ -60,6 +67,19 @@ namespace ptl
             dssttracker->init(frame, bbox);
         }
 
+        float LocalObject::find_min_query_score(Eigen::VectorXf query)
+        {
+            float min_score = 100000.0;
+            for (auto feat : features)
+            {
+                float score = cal_reid_score(query, feat);
+                if (score < min_score)
+                {
+                    min_score = score;
+                }
+            }
+            return min_score;
+        }
     } // namespace tracker
 
 } // namespace ptl

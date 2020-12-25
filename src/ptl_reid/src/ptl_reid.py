@@ -6,7 +6,9 @@ from cv_bridge import CvBridge
 
 from ptl_msgs.msg import DeadTracker
 from ptl_msgs.msg import ReidInfo
+from ptl_msgs.msg import ImageBlock
 from std_msgs.msg import Int16
+from std_msgs.msg import Float32MultiArray
 from sensor_msgs.msg import Image
 import rospy
 from cv2 import cv2 as cv2
@@ -29,12 +31,19 @@ class ReIDNode():
                          self.tracker_loginfo_callback,
                          None,
                          queue_size=10)
+        rospy.Subscriber('/ptl_detector/detector_to_reid',
+                         ImageBlock,
+                         self.detector_callback,
+                         None,
+                         queue_size=10)
         self.tracker_pub = rospy.Publisher('/ptl_reid/reid_to_tracker',
                                            ReidInfo,
                                            queue_size=10)
         self.reid_vis_pub = rospy.Publisher('/ptl_reid/reid_result',
                                             Image,
                                             queue_size=10)
+        self.detector_reid_to_tracker_pub = rospy.Publisher(
+            '/ptl_reid/detector_to_reid_to_tracker', ImageBlock, queue_size=10)
         rospy.loginfo("Load ReID net successfully!")
         rospy.loginfo("Init takes %f seconds", time.time() - start)
         rospy.spin()
@@ -114,6 +123,8 @@ class ReIDNode():
         self.tracker_pub.publish(pub_msg)
 
     def cal_feat(self, img_block):
+        # rospy.loginfo(type(img_block))
+        # rospy.loginfo(len(img_block))
         for (i, ib) in enumerate(img_block):
             if ('input_tensor' not in dir()):
                 input_tensor = torch.from_numpy(ib).unsqueeze(0).float()
@@ -170,6 +181,36 @@ class ReIDNode():
                 self.database.add_new_feat(feats[1:], id)
             rospy.loginfo("Query result id: %d", id)
         return is_query_new, id
+
+    def detector_callback(self, data):
+        # rospy.loginfo("**********into detector call back***********")
+        bridge = CvBridge()
+        query_img_list = []
+        cvimg = bridge.imgmsg_to_cv2(data.img, "rgb8")
+        for bbox in data.bboxes:
+            img_block = cvimg[bbox.data[1]:bbox.data[1] + bbox.data[3],
+                              bbox.data[0]:bbox.data[0] + bbox.data[2]]
+            img_block = cv2.resize(img_block, (128, 256),
+                                   interpolation=cv2.INTER_CUBIC)
+            img_block = img_block.transpose(2, 0, 1)
+
+            # subtracting 0.485, 0.456, 0.406 and dividing by 0.229, 0.224, 0.225 to normailize the data
+            img_block = img_block / 255.0
+            img_block[0] = (img_block[0] - 0.485) / 0.229
+            img_block[1] = (img_block[1] - 0.456) / 0.224
+            img_block[2] = (img_block[2] - 0.406) / 0.225
+
+            query_img_list.append(img_block)
+        feats = self.cal_feat(query_img_list)
+        return_msgs = data
+        for f in feats:
+            feat = Float32MultiArray()
+            for i in f:
+                feat.data.append(float(i))
+            return_msgs.features.append(feat)
+        self.detector_reid_to_tracker_pub.publish(return_msgs)
+        # rospy.loginfo(feats.shape)
+        # rospy.loginfo("**********out of detector call back***********")
 
 
 if __name__ == '__main__':

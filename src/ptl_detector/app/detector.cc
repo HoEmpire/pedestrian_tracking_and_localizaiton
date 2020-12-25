@@ -55,12 +55,12 @@ void DataProcessHub::image_callback(const sensor_msgs::CompressedImageConstPtr &
             bbox.data.push_back(r.bbox.y);
             bbox.data.push_back(r.bbox.width);
             bbox.data.push_back(r.bbox.height);
-            image_block_msg.bboxs.push_back(bbox);
+            image_block_msg.bboxes.push_back(bbox);
             image_block_msg.ids.push_back(unknown_id);
             ROS_INFO_STREAM("reliability: " << r.prob);
         }
     }
-    if (!m_detector.results.empty())
+    if (!image_block_msg.bboxes.empty())
     {
         m_image_block_pub.publish(image_block_msg);
     }

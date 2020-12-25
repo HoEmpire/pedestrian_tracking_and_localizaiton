@@ -21,7 +21,7 @@ namespace ptl
             load_config(nh_);
             m_track_vis_pub = n->advertise<sensor_msgs::Image>("tracker_results", 1);
             m_track_to_reid_pub = n->advertise<ptl_msgs::DeadTracker>("tracker_to_reid", 1);
-            m_detector_sub = n->subscribe("/ptl_detector/detector_to_tracker", 1, &TrackerInterface::detector_result_callback, this);
+            m_detector_sub = n->subscribe("/ptl_reid/detector_to_reid_to_tracker", 1, &TrackerInterface::detector_result_callback, this);
             m_data_sub = n->subscribe(camera_topic, 1, &TrackerInterface::data_callback, this);
             m_reid_sub = n->subscribe("/ptl_reid/reid_to_tracker", 1, &TrackerInterface::reid_callback, this);
         }
@@ -34,89 +34,78 @@ namespace ptl
             cv_bridge::CvImagePtr cv_ptr;
             cv::Mat image_detection_result;
             cv_ptr = cv_bridge::toCvCopy(msg->img, sensor_msgs::image_encodings::BGR8);
+
+            //maximum block size, to perform and operation to rectify the tracker block
             cv::Rect2d block_max(cv::Point2d(0, 0), cv::Point2d(cv_ptr->image.cols - 1, cv_ptr->image.rows - 1));
 
             //match the previous one
             lock_guard<mutex> lk(mtx); //加锁pub
-            vector<std_msgs::UInt16MultiArray> bboxs = msg->bboxs;
 
             bool is_blur = blur_detection(cv_ptr->image);
+
+            /*Data Association part: 
+                - two critertion:
+                    - augemented bboxes have enough overlap
+                    - Reid score is higher than a certain value
+            */
+            vector<int> matched_ids;
             if (!local_objects_list.empty())
             {
-                for (auto b = bboxs.begin(); b != bboxs.end();)
+                for (int i = 0; i < msg->bboxes.size(); i++)
                 {
-                    std::vector<int> possible_matched_id;
-                    int id_max = -1;
-                    double bbox_overlap_ratio_max = 0.0;
-                    ROS_INFO("Deal with bboxs...");
-                    cv::Rect2d detector_box = BboxPadding(Rect2d(b->data[0], b->data[1], b->data[2], b->data[3]), block_max, detector_bbox_padding); //TODO hardcode in here
-                    // ROS_INFO_STREAM("Image info: cols: " << cv_ptr->image.cols << " , rows: " << cv_ptr->image.rows);
-                    for (int i = 0; i < local_objects_list.size(); i++)
+                    AssociationVector ass_vec;
+                    ROS_INFO("Deal with bboxes...");
+                    cv::Rect2d detector_box = BboxPadding(Rect2d(msg->bboxes[i].data[0], msg->bboxes[i].data[1],
+                                                                 msg->bboxes[i].data[2], msg->bboxes[i].data[3]),
+                                                          block_max, detector_bbox_padding);
+                    ROS_INFO_STREAM("Detector bbox:" << msg->bboxes[i].data[0] << ", " << msg->bboxes[i].data[1] << ", "
+                                                     << msg->bboxes[i].data[2] << ", " << msg->bboxes[i].data[3]);
+                    for (int j = 0; j < local_objects_list.size(); j++)
                     {
-                        double bbox_overlap_ratio_tmp = bbox_matching(local_objects_list[i].bbox, detector_box);
-                        ROS_INFO_STREAM("Bbox overlap ratio: " << bbox_overlap_ratio_tmp);
-                        if (bbox_overlap_ratio_tmp > bbox_overlap_ratio)
+                        double bbox_overlap_ratio_score = bbox_matching(local_objects_list[j].bbox, detector_box);
+                        ROS_INFO_STREAM("Bbox overlap ratio: " << bbox_overlap_ratio_score);
+                        print_bbox(local_objects_list[j].bbox);
+                        if (bbox_overlap_ratio_score > bbox_overlap_ratio_threshold)
                         {
-                            possible_matched_id.push_back(i);
-                            if (bbox_overlap_ratio_tmp > bbox_overlap_ratio_max)
-                            {
-                                id_max = i;
-                                bbox_overlap_ratio_max = bbox_overlap_ratio_tmp;
-                            }
+                            float min_query_score = local_objects_list[j].find_min_query_score(feature_ros_to_eigen(msg->features[i]));
+                            ass_vec.add_new_ass(AssociationType(j, min_query_score));
                         }
                     }
+                    ass_vec.report();
 
-                    if (id_max != -1)
+                    //TODO might add somethign like ratio test in here
+                    if (ass_vec.ass_vector.empty()) // no match is found
                     {
-
-                        if (possible_matched_id.size() == 1)
-                        {
-
-                            if (local_objects_list[id_max].overlap_count == 0)
-                            {
-                                ROS_INFO_STREAM("Object " << local_objects_list[id_max].id << " re-detected!");
-                                if (!local_objects_list[id_max].is_track_succeed)
-                                    local_objects_list[id_max].reinit(Rect2d(b->data[0], b->data[1], b->data[2], b->data[3]), cv_ptr->image); //only one matched bbox
-                                //update database
-                                if (!is_blur)
-                                {
-                                    // ROS_WARN("Update database in detector callback");
-                                    cv::Mat image_block = cv_ptr->image(local_objects_list[id_max].bbox & block_max);
-                                    update_local_database(local_objects_list[id_max], image_block);
-                                }
-                            }
-                            else
-                            {
-                                ROS_INFO_STREAM("Object " << local_objects_list[id_max].id << " re-detected, but will not be updated, because of overlapping issue...");
-                            }
-                        }
-                        else
-                        {
-                            ROS_INFO_STREAM("Object " << local_objects_list[id_max].id << " re-detected, but will not be updated, because of overlapping issue...");
-                            for (auto i = possible_matched_id.begin(); i < possible_matched_id.end(); i++)
-                            {
-                                ROS_INFO_STREAM("Object " << local_objects_list[*i].id << " is overlapped!");
-                                ROS_INFO_STREAM("tracker_success_threshold:" << tracker_success_threshold);
-                                local_objects_list[*i].overlap_count = overlap_count;
-                            }
-                        }
-
-                        b = bboxs.erase(b); //删除该对象
+                        matched_ids.push_back(-1);
                     }
                     else
                     {
-                        b++;
+                        if (ass_vec.ass_vector[0].score < reid_match_threshold)
+                            matched_ids.push_back(ass_vec.ass_vector[0].id);
+                        else
+                            matched_ids.push_back(-1);
                     }
                 }
             }
-
-            //add the new ones
-            if (!bboxs.empty())
+            else
             {
-                for (auto b : bboxs)
+                matched_ids = vector<int>(msg->bboxes.size(), -1);
+            }
+
+            //local object list management
+            for (int i = 0; i < matched_ids.size(); i++)
+            {
+
+                if (matched_ids[i] == -2)
+                {
+                    ROS_ERROR("Discard multi-match...");
+                }
+                else if (matched_ids[i] == -1)
                 {
                     ROS_INFO_STREAM("Adding Tracking Object with ID:" << id);
-                    LocalObject new_object(id++, Rect2d(b.data[0], b.data[1], b.data[2], b.data[3]), cv_ptr->image, tracker_success_threshold);
+                    LocalObject new_object(id, Rect2d(msg->bboxes[i].data[0], msg->bboxes[i].data[1], msg->bboxes[i].data[2], msg->bboxes[i].data[3]),
+                                           cv_ptr->image, feature_ros_to_eigen(msg->features[i]), tracker_success_threshold);
+                    id++;
                     //update database
                     if (!is_blur)
                     {
@@ -124,6 +113,43 @@ namespace ptl
                         update_local_database(new_object, image_block);
                     }
                     local_objects_list.push_back(new_object);
+                }
+                else
+                {
+                    //multi match detection
+
+                    bool is_multi_match = false;
+                    for (int j = i + 1; j < matched_ids.size(); j++)
+                    {
+                        if (matched_ids[i] == matched_ids[j])
+                        {
+                            is_multi_match = true;
+                            matched_ids[j] = -2;
+                        }
+                    }
+
+                    if (is_multi_match)
+                    {
+                        ROS_ERROR("One local tracking object matches more than one detector image block...");
+                        matched_ids[i] = -2;
+                    }
+                    else
+                    {
+                        ROS_INFO_STREAM("Object " << local_objects_list[matched_ids[i]].id << " re-detected!");
+
+                        local_objects_list[matched_ids[i]].reinit(Rect2d(msg->bboxes[i].data[0], msg->bboxes[i].data[1],
+                                                                         msg->bboxes[i].data[2], msg->bboxes[i].data[3]),
+                                                                  cv_ptr->image);
+                        local_objects_list[matched_ids[i]].features.push_back(feature_ros_to_eigen(msg->features[i]));
+
+                        //update database
+                        if (!is_blur)
+                        {
+                            // ROS_WARN("Update database in detector callback");
+                            cv::Mat image_block = cv_ptr->image(local_objects_list[matched_ids[i]].bbox & block_max);
+                            update_local_database(local_objects_list[matched_ids[i]], image_block);
+                        }
+                    }
                 }
             }
 
@@ -154,55 +180,13 @@ namespace ptl
             //update the tracker and update the local database
             for (auto lo = local_objects_list.begin(); lo < local_objects_list.end(); lo++)
             {
-                // if (lo->tracking_fail_count >= track_fail_timeout_tick)
-                // {
-                //     ptl_msgs::DeadTracker msg_pub;
-                //     for (auto ib : lo->img_blocks)
-                //     {
-                //         sensor_msgs::ImagePtr img_tmp = cv_bridge::CvImage(std_msgs::Header(), "bgr8", ib).toImageMsg();
-                //         msg_pub.img_blocks.push_back(*img_tmp);
-                //     }
-                //     if (msg_pub.img_blocks.size() > batch_num_min)
-                //         m_track_to_reid_pub.publish(msg_pub);
-                //     lo = local_objects_list.erase(lo);
-                //     continue;
-                // }
                 lo->update_tracker(cv_ptr->image);
 
                 //update database
                 if (!is_blur && lo->is_track_succeed)
                 {
-                    // ROS_WARN("Update database in data callback");
-                    int possible_matched_bbox_count = 0;
-                    for (int i = 0; i < local_objects_list.size(); i++)
-                    {
-                        double bbox_overlap_ratio_tmp = bbox_matching(local_objects_list[i].bbox, lo->bbox);
-                        ROS_INFO_STREAM("DataCallback:Bbox overlap: " << bbox_overlap_ratio_tmp);
-                        if (bbox_overlap_ratio_tmp > bbox_overlap_ratio)
-                        {
-                            ++possible_matched_bbox_count;
-                        }
-                    }
-
-                    //avoid adding ambiguious image
-                    if (possible_matched_bbox_count == 1)
-                    {
-                        if (lo->overlap_count != 0)
-                        {
-                            lo->overlap_count--;
-                            lo->is_track_succeed == false;
-                        }
-                        else
-                        {
-                            cv::Mat image_block = cv_ptr->image(lo->bbox & block_max);
-                            update_local_database(lo, image_block);
-                        }
-                    }
-                    else
-                    {
-                        lo->overlap_count = overlap_count;
-                        lo->is_track_succeed = false;
-                    }
+                    cv::Mat image_block = cv_ptr->image(lo->bbox & block_max);
+                    update_local_database(lo, image_block);
                 }
             }
 
@@ -279,10 +263,11 @@ namespace ptl
             GPARAM(n, "/data_topic/depth_topic", depth_topic);
 
             GPARAM(n, "/tracker/track_fail_timeout_tick", track_fail_timeout_tick);
-            GPARAM(n, "/tracker/bbox_overlap_ratio", bbox_overlap_ratio);
+            GPARAM(n, "/tracker/bbox_overlap_ratio", bbox_overlap_ratio_threshold);
             GPARAM(n, "/tracker/tracker_success_threshold", tracker_success_threshold);
             GPARAM(n, "/tracker/overlap_count", overlap_count);
             GPARAM(n, "/tracker/detector_bbox_padding", detector_bbox_padding);
+            GPARAM(n, "/tracker/reid_match_threshold", reid_match_threshold);
 
             GPARAM(n, "/local_database/height_width_ratio_min", height_width_ratio_min);
             GPARAM(n, "/local_database/height_width_ratio_max", height_width_ratio_max);

@@ -20,13 +20,17 @@ catkin_package(
     DEPENDS)
 
 find_package(OpenCV 3 REQUIRED)
+find_package(Eigen3 REQUIRED)
 include_directories( 
     include
     ${catkin_INCLUDE_DIRS}
+    ${EIGEN3_INCLUDE_DIRS}
     "/usr/local/include/opentracker" 
 )
 find_library(OpenTracker_LIBS libopentracker.so /usr/local/lib)
+add_library(tracker_lib src/local_object.cpp src/tracker.cpp)
+target_link_libraries(tracker_lib ${OpenTracker_LIBS} ${OpenCV_LIBS} ${catkin_LIBRARIES}) 
 
-add_executable(tracker src/local_object.cpp src/tracker.cpp src/main.cpp) 
-target_link_libraries(tracker ${catkin_LIBRARIES} ${OpenCV_LIBS} ${OpenTracker_LIBS})
+add_executable(tracker src/main.cpp) 
+target_link_libraries(tracker tracker_lib)
 add_dependencies(tracker ptl_msgs_generate_messages_cpp)
