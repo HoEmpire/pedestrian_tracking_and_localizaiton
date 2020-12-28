@@ -55,16 +55,40 @@ inline void print_bbox(cv::Rect2d bbox)
                                   << bbox.width << ", " << bbox.height);
 }
 
+inline double cal_bbox_overlap_ratio(cv::Rect2d track_bbox, cv::Rect2d detect_bbox)
+{
+    return std::max((track_bbox & detect_bbox).area() / track_bbox.area(),
+                    (track_bbox & detect_bbox).area() / detect_bbox.area());
+}
+
+inline double cal_bbox_distance(cv::Rect2d track_bbox, cv::Rect2d detect_bbox)
+{
+    return std::sqrt(std::pow(track_bbox.x - detect_bbox.x, 2) + std::pow(track_bbox.y - detect_bbox.y, 2));
+}
+
+inline double cal_bbox_size_diff(cv::Rect2d track_bbox, cv::Rect2d detect_bbox)
+{
+    return std::sqrt(std::pow(track_bbox.width - detect_bbox.width, 2) + std::pow(track_bbox.height - detect_bbox.height, 2));
+}
+
+inline double cal_bbox_match_score(cv::Rect2d track_bbox, cv::Rect2d detect_bbox)
+{
+    return std::sqrt(std::pow(track_bbox.x - detect_bbox.x, 2) + std::pow(track_bbox.y - detect_bbox.y, 2) +
+                     std::pow(track_bbox.width - detect_bbox.width, 2) + std::pow(track_bbox.height - detect_bbox.height, 2));
+}
+
 class AssociationType
 {
 public:
-    AssociationType(int id_, float score_)
+    AssociationType(int id_, float score_, float bbox_match_dis_)
     {
         id = id_;
         score = score_;
+        bbox_match_dis = bbox_match_dis_;
     }
     int id;
     float score;
+    float bbox_match_dis;
 };
 
 class AssociationVector
@@ -84,6 +108,29 @@ public:
                 {
                     ass_vector.insert(iter, ass_object);
                     return;
+                }
+            }
+        }
+    }
+
+    void reranking()
+    {
+        if (ass_vector.empty())
+            return;
+        std::vector<AssociationType> new_ass_vector;
+        for (auto ass_obj : ass_vector)
+        {
+            if (new_ass_vector.empty())
+            {
+                new_ass_vector.push_back(ass_obj);
+                continue;
+            }
+            for (auto iter = new_ass_vector.begin(); iter < new_ass_vector.end(); iter++)
+            {
+                if (ass_obj.bbox_match_dis < iter->bbox_match_dis)
+                {
+                    ass_vector.insert(iter, ass_obj);
+                    break;
                 }
             }
         }

@@ -49,50 +49,75 @@ namespace ptl
                     - Reid score is higher than a certain value
             */
             vector<int> matched_ids;
+            vector<AssociationVector> ass_vectors;
             if (!local_objects_list.empty())
             {
                 for (int i = 0; i < msg->bboxes.size(); i++)
                 {
                     AssociationVector ass_vec;
                     ROS_INFO("Deal with bboxes...");
-                    cv::Rect2d detector_box = BboxPadding(Rect2d(msg->bboxes[i].data[0], msg->bboxes[i].data[1],
-                                                                 msg->bboxes[i].data[2], msg->bboxes[i].data[3]),
-                                                          block_max, detector_bbox_padding);
+                    cv::Rect2d detector_bbox_origin = Rect2d(msg->bboxes[i].data[0], msg->bboxes[i].data[1],
+                                                             msg->bboxes[i].data[2], msg->bboxes[i].data[3]);
+                    cv::Rect2d detector_bbox = BboxPadding(detector_bbox_origin, block_max, detector_bbox_padding);
+                    print_bbox(detector_bbox);
                     ROS_INFO_STREAM("Detector bbox:" << msg->bboxes[i].data[0] << ", " << msg->bboxes[i].data[1] << ", "
                                                      << msg->bboxes[i].data[2] << ", " << msg->bboxes[i].data[3]);
                     for (int j = 0; j < local_objects_list.size(); j++)
                     {
-                        double bbox_overlap_ratio_score = bbox_matching(local_objects_list[j].bbox, detector_box);
+                        double bbox_overlap_ratio_score = cal_bbox_overlap_ratio(local_objects_list[j].bbox, detector_bbox);
                         ROS_INFO_STREAM("Bbox overlap ratio: " << bbox_overlap_ratio_score);
                         print_bbox(local_objects_list[j].bbox);
                         if (bbox_overlap_ratio_score > bbox_overlap_ratio_threshold)
                         {
                             float min_query_score = local_objects_list[j].find_min_query_score(feature_ros_to_eigen(msg->features[i]));
-                            ass_vec.add_new_ass(AssociationType(j, min_query_score));
+                            ass_vec.add_new_ass(AssociationType(j, min_query_score, cal_bbox_match_score(detector_bbox_origin, local_objects_list[j].bbox)));
                         }
                     }
+                    if (ass_vec.ass_vector.size() > 1)
+                        ass_vec.reranking();
                     ass_vec.report();
 
-                    //TODO might add somethign like ratio test in here
-                    if (ass_vec.ass_vector.empty()) // no match is found
-                    {
-                        matched_ids.push_back(-1);
-                    }
-                    else
-                    {
-                        if (ass_vec.ass_vector[0].score < reid_match_threshold)
-                            matched_ids.push_back(ass_vec.ass_vector[0].id);
-                        else
-                            matched_ids.push_back(-1);
-                    }
+                    ass_vectors.push_back(ass_vec);
                 }
             }
             else
             {
-                matched_ids = vector<int>(msg->bboxes.size(), -1);
+                ass_vectors = vector<AssociationVector>(msg->bboxes.size(), AssociationVector());
             }
 
             //local object list management
+            //deal with multi match
+            bool exist_multi_match = true;
+            while (exist_multi_match)
+            {
+                exist_multi_match = false;
+                for (auto a = ass_vectors.begin(); a != ass_vectors.end(); a++)
+                {
+                    for (auto b = ass_vectors.begin(); b != ass_vectors.end(); b++)
+                    {
+                        if (a == b)
+                            continue;
+
+                        if (!a->ass_vector.empty() && b->ass_vector.empty())
+                        {
+                            if (a->ass_vector[0].id == b->ass_vector[0].id) //multi_match_detected
+                            {
+                                if (a->ass_vector[0].score < b->ass_vector[0].score)
+                                {
+                                    b->ass_vector.erase(b->ass_vector.begin());
+                                }
+                                else
+                                {
+                                    a->ass_vector.erase(a->ass_vector.begin());
+                                    a = b;
+                                }
+
+                                exist_multi_match = true;
+                            }
+                        }
+                    }
+                }
+            }
             for (int i = 0; i < matched_ids.size(); i++)
             {
 
@@ -249,13 +274,6 @@ namespace ptl
             reid_infos.last_query_id = msg.last_query_id;
         }
 
-        //TODO might use better matching strategies
-        double TrackerInterface::bbox_matching(Rect2d track_bbox, Rect2d detect_bbox)
-        {
-            return std::max((track_bbox & detect_bbox).area() / track_bbox.area(),
-                            (track_bbox & detect_bbox).area() / detect_bbox.area());
-        }
-
         void TrackerInterface::load_config(ros::NodeHandle *n)
         {
             GPARAM(n, "/data_topic/lidar_topic", lidar_topic);
@@ -264,10 +282,11 @@ namespace ptl
 
             GPARAM(n, "/tracker/track_fail_timeout_tick", track_fail_timeout_tick);
             GPARAM(n, "/tracker/bbox_overlap_ratio", bbox_overlap_ratio_threshold);
-
             GPARAM(n, "/tracker/overlap_count", overlap_count);
             GPARAM(n, "/tracker/detector_bbox_padding", detector_bbox_padding);
             GPARAM(n, "/tracker/reid_match_threshold", reid_match_threshold);
+            GPARAM(n, "/tracker/reid_match_bbox_dis", reid_match_bbox_dis);
+            GPARAM(n, "/tracker/reid_match_bbox_size_diff", reid_match_bbox_size_diff);
 
             GPARAM(n, "/local_database/height_width_ratio_min", height_width_ratio_min);
             GPARAM(n, "/local_database/height_width_ratio_max", height_width_ratio_max);

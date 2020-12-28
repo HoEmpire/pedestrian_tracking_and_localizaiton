@@ -30,7 +30,6 @@ namespace ptl
             void detector_result_callback(const ptl_msgs::ImageBlockPtr &msg);
             void data_callback(const sensor_msgs::CompressedImageConstPtr &msg);
             void reid_callback(const ptl_msgs::ReidInfo &msg);
-            double bbox_matching(cv::Rect2d track_bbox, cv::Rect2d detect_bbox);
             void load_config(ros::NodeHandle *n);
             bool update_local_database(LocalObject local_object, const cv::Mat img_block);
             bool update_local_database(std::vector<LocalObject>::iterator local_object, const cv::Mat img_block);
@@ -61,6 +60,8 @@ namespace ptl
             int overlap_count = 10;
             int detector_bbox_padding = 10;
             float reid_match_threshold = 200;
+            double reid_match_bbox_dis = 30;
+            double reid_match_bbox_size_diff = 30;
 
             struct TrackerParam tracker_param;
         };
