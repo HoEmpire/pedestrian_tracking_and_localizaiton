@@ -57,10 +57,12 @@ namespace ptl
             float blur_detection_threshold = 160.0;
             float record_interval = 0.1;
             int batch_num_min = 3;
-            float tracker_success_threshold = 0.2;
+
             int overlap_count = 10;
             int detector_bbox_padding = 10;
             float reid_match_threshold = 200;
+
+            struct TrackerParam tracker_param;
         };
     } // namespace tracker
 

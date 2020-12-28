@@ -104,7 +104,7 @@ namespace ptl
                 {
                     ROS_INFO_STREAM("Adding Tracking Object with ID:" << id);
                     LocalObject new_object(id, Rect2d(msg->bboxes[i].data[0], msg->bboxes[i].data[1], msg->bboxes[i].data[2], msg->bboxes[i].data[3]),
-                                           cv_ptr->image, feature_ros_to_eigen(msg->features[i]), tracker_success_threshold);
+                                           cv_ptr->image, feature_ros_to_eigen(msg->features[i]), tracker_param);
                     id++;
                     //update database
                     if (!is_blur)
@@ -264,7 +264,7 @@ namespace ptl
 
             GPARAM(n, "/tracker/track_fail_timeout_tick", track_fail_timeout_tick);
             GPARAM(n, "/tracker/bbox_overlap_ratio", bbox_overlap_ratio_threshold);
-            GPARAM(n, "/tracker/tracker_success_threshold", tracker_success_threshold);
+
             GPARAM(n, "/tracker/overlap_count", overlap_count);
             GPARAM(n, "/tracker/detector_bbox_padding", detector_bbox_padding);
             GPARAM(n, "/tracker/reid_match_threshold", reid_match_threshold);
@@ -274,6 +274,18 @@ namespace ptl
             GPARAM(n, "/local_database/blur_detection_threshold", blur_detection_threshold);
             GPARAM(n, "/local_database/record_interval", record_interval);
             GPARAM(n, "/local_database/batch_num_min", batch_num_min);
+
+            //kcf
+            GPARAM(n, "/kcf/tracker_success_threshold", tracker_param.tracker_success_threshold);
+            GPARAM(n, "/kcf/interp_factor", tracker_param.interp_factor);
+            GPARAM(n, "/kcf/sigma", tracker_param.sigma);
+            GPARAM(n, "/kcf/lambda", tracker_param.lambda);
+            GPARAM(n, "/kcf/cell_size", tracker_param.cell_size);
+            GPARAM(n, "/kcf/padding", tracker_param.padding);
+            GPARAM(n, "/kcf/output_sigma_factor", tracker_param.output_sigma_factor);
+            GPARAM(n, "/kcf/template_size", tracker_param.template_size);
+            GPARAM(n, "/kcf/scale_step", tracker_param.scale_step);
+            GPARAM(n, "/kcf/scale_weight", tracker_param.scale_weight);
         }
 
         bool TrackerInterface::blur_detection(cv::Mat img)

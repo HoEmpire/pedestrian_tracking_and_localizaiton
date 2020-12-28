@@ -14,9 +14,22 @@ void GPARAM(ros::NodeHandle *n, std::string param_path, T &param)
 
 struct ReidInfo
 {
-public:
     int total_num = 0;
     int last_query_id = -1;
+};
+
+struct TrackerParam
+{
+    float tracker_success_threshold = 0.2;
+    float interp_factor = 0.005;
+    float sigma = 0.4;
+    float lambda = 0.0001;
+    int cell_size = 4;
+    float padding = 2.5;
+    float output_sigma_factor = 0.1;
+    int template_size = 96;
+    float scale_step = 1.05;
+    float scale_weight = 0.95;
 };
 
 inline cv::Rect2d BboxPadding(cv::Rect2d bbox_to_pad, cv::Rect2d bbox_max, int padding_pixel)

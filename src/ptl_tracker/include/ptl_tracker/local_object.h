@@ -8,6 +8,7 @@
 #include <Eigen/Dense>
 
 #include "ptl_tracker/timer.hpp"
+#include "ptl_tracker/util.h"
 
 namespace ptl
 {
@@ -17,7 +18,7 @@ namespace ptl
         {
         public:
             LocalObject(int id_init, cv::Rect2d bbox_init, cv::Mat frame,
-                        Eigen::VectorXf feat, float tracker_success_param = 0.5);
+                        Eigen::VectorXf feat, struct TrackerParam track_param_init);
             void update_tracker(cv::Mat frame);
             void reinit(cv::Rect2d bbox_init, cv::Mat frame);
             float find_min_query_score(Eigen::VectorXf);
@@ -39,7 +40,7 @@ namespace ptl
             bool MULTISCALE = true;
             bool LAB = true;
             bool DSST = false;
-            float tracker_success_threshold;
+            struct TrackerParam tracker_param;
 
             kcf::KCFTracker *dssttracker;
         };

@@ -6,10 +6,21 @@ data_topic:
 tracker:
   track_fail_timeout_tick: 15
   bbox_overlap_ratio: 0.01
-  tracker_success_threshold: 0.4
   overlap_count: 2
   detector_bbox_padding: 100
   reid_match_threshold: 450
+
+kcf:
+  tracker_success_threshold: 0.6
+  interp_factor: 0.001 # default 0.005
+  sigma: 0.72 # default 0.4 small sigma leads to higher tracking accuracy, larger sigma leads to less tracker lost
+  lambda: 0.0001 # default 0.0001
+  cell_size: 2 # default 4
+  padding: 2.5 # default 2.5
+  output_sigma_factor: 0.18 # default 0.1
+  template_size: 96 # default 96
+  scale_step: 1.05 # default 1.05
+  scale_weight: 0.95 # default 0.95
 
 local_database:
   height_width_ratio_min: 0.85

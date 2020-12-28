@@ -9,24 +9,33 @@ namespace ptl
         }
 
         LocalObject::LocalObject(int id_init, cv::Rect2d bbox_init, cv::Mat frame,
-                                 Eigen::VectorXf feat, float tracker_success_param)
+                                 Eigen::VectorXf feat, struct TrackerParam tracker_param_init)
         {
             id = id_init;
             bbox = bbox_init;
             features.push_back(feat);
-            tracker_success_threshold = tracker_success_param;
+            tracker_param = tracker_param_init;
             tracking_fail_count = 0;
             overlap_count = 0;
             dssttracker = new kcf::KCFTracker(HOG, FIXEDWINDOW, MULTISCALE, LAB, DSST);
             if (DSST)
             {
-                dssttracker->detect_thresh_dsst = tracker_success_threshold;
+                dssttracker->detect_thresh_dsst = tracker_param.tracker_success_threshold;
                 dssttracker->scale_step = 1;
             }
             else
             {
-                dssttracker->detect_thresh_kcf = tracker_success_threshold;
-                dssttracker->padding = 2.5;
+                dssttracker->detect_thresh_kcf = tracker_param.tracker_success_threshold;
+                dssttracker->padding = tracker_param.padding;
+                dssttracker->interp_factor = tracker_param.interp_factor;
+                dssttracker->sigma = tracker_param.sigma;
+                dssttracker->lambda = tracker_param.lambda;
+                dssttracker->cell_size = tracker_param.cell_size;
+                dssttracker->padding = tracker_param.padding;
+                dssttracker->output_sigma_factor = tracker_param.output_sigma_factor;
+                dssttracker->template_size = tracker_param.template_size;
+                dssttracker->scale_step = tracker_param.scale_step;
+                dssttracker->scale_weight = tracker_param.scale_weight;
             }
 
             dssttracker->init(frame, bbox);
@@ -56,13 +65,22 @@ namespace ptl
             dssttracker = new kcf::KCFTracker(HOG, FIXEDWINDOW, MULTISCALE, LAB, DSST);
             if (DSST)
             {
-                dssttracker->detect_thresh_dsst = tracker_success_threshold;
+                dssttracker->detect_thresh_dsst = tracker_param.tracker_success_threshold;
                 dssttracker->scale_step = 1;
             }
             else
             {
-                dssttracker->detect_thresh_kcf = tracker_success_threshold;
-                dssttracker->padding = 2.5;
+                dssttracker->detect_thresh_kcf = tracker_param.tracker_success_threshold;
+                dssttracker->padding = tracker_param.padding;
+                dssttracker->interp_factor = tracker_param.interp_factor;
+                dssttracker->sigma = tracker_param.sigma;
+                dssttracker->lambda = tracker_param.lambda;
+                dssttracker->cell_size = tracker_param.cell_size;
+                dssttracker->padding = tracker_param.padding;
+                dssttracker->output_sigma_factor = tracker_param.output_sigma_factor;
+                dssttracker->template_size = tracker_param.template_size;
+                dssttracker->scale_step = tracker_param.scale_step;
+                dssttracker->scale_weight = tracker_param.scale_weight;
             }
             dssttracker->init(frame, bbox);
         }
