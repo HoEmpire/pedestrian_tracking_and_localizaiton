@@ -13,7 +13,7 @@
 #include "opentracker/kcf/kcftracker.hpp"
 
 #include "ptl_tracker/local_object.h"
-#include "ptl_tracker/util.h"
+#include "ptl_tracker/association_type.hpp"
 #include "ptl_msgs/ImageBlock.h"
 #include "ptl_msgs/ReidInfo.h"
 

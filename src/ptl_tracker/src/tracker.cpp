@@ -49,7 +49,7 @@ namespace ptl
                     - Reid score is higher than a certain value
             */
             vector<int> matched_ids;
-            vector<AssociationVector> ass_vectors;
+            vector<AssociationVector> detector_bbox_ass_vec;
             if (!local_objects_list.empty())
             {
                 for (int i = 0; i < msg->bboxes.size(); i++)
@@ -77,47 +77,22 @@ namespace ptl
                         ass_vec.reranking();
                     ass_vec.report();
 
-                    ass_vectors.push_back(ass_vec);
+                    detector_bbox_ass_vec.push_back(ass_vec);
                 }
             }
             else
             {
-                ass_vectors = vector<AssociationVector>(msg->bboxes.size(), AssociationVector());
+                detector_bbox_ass_vec = vector<AssociationVector>(msg->bboxes.size(), AssociationVector());
             }
 
             //local object list management
-            //deal with multi match
-            bool exist_multi_match = true;
-            while (exist_multi_match)
+            uniquify_detector_association_vectors(detector_bbox_ass_vec, local_objects_list.size());
+            ROS_INFO("Report after uniquification");
+            for (auto ass : detector_bbox_ass_vec)
             {
-                exist_multi_match = false;
-                for (auto a = ass_vectors.begin(); a != ass_vectors.end(); a++)
-                {
-                    for (auto b = ass_vectors.begin(); b != ass_vectors.end(); b++)
-                    {
-                        if (a == b)
-                            continue;
-
-                        if (!a->ass_vector.empty() && b->ass_vector.empty())
-                        {
-                            if (a->ass_vector[0].id == b->ass_vector[0].id) //multi_match_detected
-                            {
-                                if (a->ass_vector[0].score < b->ass_vector[0].score)
-                                {
-                                    b->ass_vector.erase(b->ass_vector.begin());
-                                }
-                                else
-                                {
-                                    a->ass_vector.erase(a->ass_vector.begin());
-                                    a = b;
-                                }
-
-                                exist_multi_match = true;
-                            }
-                        }
-                    }
-                }
+                ass.report();
             }
+
             for (int i = 0; i < matched_ids.size(); i++)
             {
 
