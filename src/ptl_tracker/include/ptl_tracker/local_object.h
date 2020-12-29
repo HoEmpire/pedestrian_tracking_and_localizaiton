@@ -26,6 +26,7 @@ namespace ptl
             int id;
             cv::Rect2d bbox;
             int tracking_fail_count;
+            int detector_update_count;
             int overlap_count;
             geometry_msgs::Point position_local;
             cv::Scalar color;

@@ -57,7 +57,7 @@ namespace ptl
             float record_interval = 0.1;
             int batch_num_min = 3;
 
-            int overlap_count = 10;
+            int detector_update_timeout_tick = 10;
             int detector_bbox_padding = 10;
             float reid_match_threshold = 200;
             double reid_match_bbox_dis = 30;

@@ -1,20 +1,20 @@
 data_topic:
   lidar_topic: /livox/lidar
-  camera_topic: /camera/color/image_raw/compressed
+  camera_topic: /camera2/color/image_raw/compressed
   depth_topic: /livox/lidar
 
 tracker:
-  track_fail_timeout_tick: 15
+  track_fail_timeout_tick: 20
   bbox_overlap_ratio: 0.01
-  overlap_count: 2
-  detector_bbox_padding: 100
+  detector_update_timeout_tick: 20
+  detector_bbox_padding: 200
   reid_match_threshold: 450
   reid_match_bbox_dis: 80
   reid_match_bbox_size_diff: 80
 
 kcf:
-  tracker_success_threshold: 0.38
-  interp_factor: 0.015 # default 0.005
+  tracker_success_threshold: 0.38 #0.48还行
+  interp_factor: 0.012 # default 0.005
   sigma: 0.4 # default 0.4 small sigma leads to higher tracking accuracy, larger sigma leads to less tracker lost
   lambda: 0.0001 # default 0.0001
   cell_size: 4 # default 4
@@ -28,5 +28,5 @@ local_database:
   height_width_ratio_min: 0.85
   height_width_ratio_max: 4.0
   blur_detection_threshold: 20.0
-  record_interval: 0.01
-  batch_num_min: 10
+  record_interval: 0.1
+  batch_num_min: 8

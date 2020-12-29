@@ -16,6 +16,7 @@ namespace ptl
             features.push_back(feat);
             tracker_param = tracker_param_init;
             tracking_fail_count = 0;
+            detector_update_count = 0;
             overlap_count = 0;
             dssttracker = new kcf::KCFTracker(HOG, FIXEDWINDOW, MULTISCALE, LAB, DSST);
             if (DSST)
@@ -47,6 +48,7 @@ namespace ptl
         void LocalObject::update_tracker(cv::Mat frame)
         {
             is_track_succeed = dssttracker->update(frame, bbox);
+            detector_update_count++;
             if (is_track_succeed)
             {
                 tracking_fail_count = 0;
@@ -62,6 +64,7 @@ namespace ptl
         {
             bbox = bbox_init;
             tracking_fail_count = 0;
+            detector_update_count = 0;
             dssttracker = new kcf::KCFTracker(HOG, FIXEDWINDOW, MULTISCALE, LAB, DSST);
             if (DSST)
             {

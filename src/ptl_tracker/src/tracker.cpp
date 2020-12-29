@@ -52,6 +52,7 @@ namespace ptl
             vector<AssociationVector> detector_bbox_ass_vec;
             if (!local_objects_list.empty())
             {
+                ROS_INFO_STREAM(msg->bboxes.size() << " bboxes detected!");
                 for (int i = 0; i < msg->bboxes.size(); i++)
                 {
                     AssociationVector ass_vec;
@@ -59,9 +60,9 @@ namespace ptl
                     cv::Rect2d detector_bbox_origin = Rect2d(msg->bboxes[i].data[0], msg->bboxes[i].data[1],
                                                              msg->bboxes[i].data[2], msg->bboxes[i].data[3]);
                     cv::Rect2d detector_bbox = BboxPadding(detector_bbox_origin, block_max, detector_bbox_padding);
-                    print_bbox(detector_bbox);
-                    ROS_INFO_STREAM("Detector bbox:" << msg->bboxes[i].data[0] << ", " << msg->bboxes[i].data[1] << ", "
-                                                     << msg->bboxes[i].data[2] << ", " << msg->bboxes[i].data[3]);
+                    print_bbox(detector_bbox_origin);
+                    // ROS_INFO_STREAM("Detector bbox:" << msg->bboxes[i].data[0] << ", " << msg->bboxes[i].data[1] << ", "
+                    //  << msg->bboxes[i].data[2] << ", " << msg->bboxes[i].data[3]);
                     for (int j = 0; j < local_objects_list.size(); j++)
                     {
                         double bbox_overlap_ratio_score = cal_bbox_overlap_ratio(local_objects_list[j].bbox, detector_bbox);
@@ -70,14 +71,21 @@ namespace ptl
                         if (bbox_overlap_ratio_score > bbox_overlap_ratio_threshold)
                         {
                             float min_query_score = local_objects_list[j].find_min_query_score(feature_ros_to_eigen(msg->features[i]));
-                            ass_vec.add_new_ass(AssociationType(j, min_query_score, cal_bbox_match_score(detector_bbox_origin, local_objects_list[j].bbox)));
+                            if (min_query_score < reid_match_threshold)
+                                ass_vec.add_new_ass(AssociationType(j, min_query_score, cal_bbox_match_score(detector_bbox_origin, local_objects_list[j].bbox)));
                         }
                     }
-                    if (ass_vec.ass_vector.size() > 1)
-                        ass_vec.reranking();
+                    // if (ass_vec.ass_vector.size() > 1)
+                    //     ass_vec.reranking();
                     ass_vec.report();
-
+                    ROS_INFO("---------------------------------");
                     detector_bbox_ass_vec.push_back(ass_vec);
+                }
+                uniquify_detector_association_vectors(detector_bbox_ass_vec, local_objects_list.size());
+                ROS_INFO("---Report after uniquification---");
+                for (auto ass : detector_bbox_ass_vec)
+                {
+                    ass.report();
                 }
             }
             else
@@ -86,21 +94,9 @@ namespace ptl
             }
 
             //local object list management
-            uniquify_detector_association_vectors(detector_bbox_ass_vec, local_objects_list.size());
-            ROS_INFO("Report after uniquification");
-            for (auto ass : detector_bbox_ass_vec)
+            for (int i = 0; i < detector_bbox_ass_vec.size(); i++)
             {
-                ass.report();
-            }
-
-            for (int i = 0; i < matched_ids.size(); i++)
-            {
-
-                if (matched_ids[i] == -2)
-                {
-                    ROS_ERROR("Discard multi-match...");
-                }
-                else if (matched_ids[i] == -1)
+                if (detector_bbox_ass_vec[i].ass_vector.empty())
                 {
                     ROS_INFO_STREAM("Adding Tracking Object with ID:" << id);
                     LocalObject new_object(id, Rect2d(msg->bboxes[i].data[0], msg->bboxes[i].data[1], msg->bboxes[i].data[2], msg->bboxes[i].data[3]),
@@ -116,39 +112,21 @@ namespace ptl
                 }
                 else
                 {
-                    //multi match detection
 
-                    bool is_multi_match = false;
-                    for (int j = i + 1; j < matched_ids.size(); j++)
+                    int matched_id = detector_bbox_ass_vec[i].ass_vector[0].id;
+                    ROS_INFO_STREAM("Object " << local_objects_list[matched_id].id << " re-detected!");
+
+                    local_objects_list[matched_id].reinit(Rect2d(msg->bboxes[i].data[0], msg->bboxes[i].data[1],
+                                                                 msg->bboxes[i].data[2], msg->bboxes[i].data[3]),
+                                                          cv_ptr->image);
+                    local_objects_list[matched_id].features.push_back(feature_ros_to_eigen(msg->features[i]));
+
+                    //update database
+                    if (!is_blur)
                     {
-                        if (matched_ids[i] == matched_ids[j])
-                        {
-                            is_multi_match = true;
-                            matched_ids[j] = -2;
-                        }
-                    }
-
-                    if (is_multi_match)
-                    {
-                        ROS_ERROR("One local tracking object matches more than one detector image block...");
-                        matched_ids[i] = -2;
-                    }
-                    else
-                    {
-                        ROS_INFO_STREAM("Object " << local_objects_list[matched_ids[i]].id << " re-detected!");
-
-                        local_objects_list[matched_ids[i]].reinit(Rect2d(msg->bboxes[i].data[0], msg->bboxes[i].data[1],
-                                                                         msg->bboxes[i].data[2], msg->bboxes[i].data[3]),
-                                                                  cv_ptr->image);
-                        local_objects_list[matched_ids[i]].features.push_back(feature_ros_to_eigen(msg->features[i]));
-
-                        //update database
-                        if (!is_blur)
-                        {
-                            // ROS_WARN("Update database in detector callback");
-                            cv::Mat image_block = cv_ptr->image(local_objects_list[matched_ids[i]].bbox & block_max);
-                            update_local_database(local_objects_list[matched_ids[i]], image_block);
-                        }
+                        // ROS_WARN("Update database in detector callback");
+                        cv::Mat image_block = cv_ptr->image(local_objects_list[matched_id].bbox & block_max);
+                        update_local_database(local_objects_list[matched_id], image_block);
                     }
                 }
             }
@@ -193,7 +171,7 @@ namespace ptl
             //remove the tracker that loses track
             for (auto lo = local_objects_list.begin(); lo < local_objects_list.end();)
             {
-                if (lo->tracking_fail_count >= track_fail_timeout_tick)
+                if (lo->tracking_fail_count >= track_fail_timeout_tick || lo->detector_update_count >= detector_update_timeout_tick)
                 {
                     ptl_msgs::DeadTracker msg_pub;
                     for (auto ib : lo->img_blocks)
@@ -257,7 +235,7 @@ namespace ptl
 
             GPARAM(n, "/tracker/track_fail_timeout_tick", track_fail_timeout_tick);
             GPARAM(n, "/tracker/bbox_overlap_ratio", bbox_overlap_ratio_threshold);
-            GPARAM(n, "/tracker/overlap_count", overlap_count);
+            GPARAM(n, "/tracker/detector_update_timeout_tick", detector_update_timeout_tick);
             GPARAM(n, "/tracker/detector_bbox_padding", detector_bbox_padding);
             GPARAM(n, "/tracker/reid_match_threshold", reid_match_threshold);
             GPARAM(n, "/tracker/reid_match_bbox_dis", reid_match_bbox_dis);
