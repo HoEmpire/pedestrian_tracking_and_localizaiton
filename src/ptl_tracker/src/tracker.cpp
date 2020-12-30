@@ -75,8 +75,8 @@ namespace ptl
                                 ass_vec.add_new_ass(AssociationType(j, min_query_score, cal_bbox_match_score(detector_bbox_origin, local_objects_list[j].bbox)));
                         }
                     }
-                    // if (ass_vec.ass_vector.size() > 1)
-                    //     ass_vec.reranking();
+                    if (ass_vec.ass_vector.size() > 1)
+                        ass_vec.reranking();
                     ass_vec.report();
                     ROS_INFO("---------------------------------");
                     detector_bbox_ass_vec.push_back(ass_vec);
