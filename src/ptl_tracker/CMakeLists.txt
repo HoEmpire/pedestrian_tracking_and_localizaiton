@@ -11,6 +11,8 @@ find_package(catkin
     roscpp
     ptl_msgs
     cv_bridge
+    tf2_ros
+    pcl_ros
 )
 
 catkin_package(
@@ -21,10 +23,13 @@ catkin_package(
 
 find_package(OpenCV 3 REQUIRED)
 find_package(Eigen3 REQUIRED)
+find_package(PCL 1.7 REQUIRED) 
+
 include_directories( 
     include
     ${catkin_INCLUDE_DIRS}
     ${EIGEN3_INCLUDE_DIRS}
+    ${PCL_INCLUDE_DIRS}
     "/usr/local/include/opentracker" 
 )
 find_library(OpenTracker_LIBS libopentracker.so /usr/local/lib)
@@ -34,3 +39,6 @@ target_link_libraries(tracker_lib ${OpenTracker_LIBS} ${OpenCV_LIBS} ${catkin_LI
 add_executable(tracker src/main.cpp) 
 target_link_libraries(tracker tracker_lib)
 add_dependencies(tracker ptl_msgs_generate_messages_cpp)
+
+add_executable(tf_test src/test.cpp) 
+target_link_libraries(tf_test ${catkin_LIBRARIES})

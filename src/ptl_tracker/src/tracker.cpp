@@ -28,7 +28,7 @@ namespace ptl
 
         void TrackerInterface::detector_result_callback(const ptl_msgs::ImageBlockPtr &msg)
         {
-            ROS_INFO_STREAM("******Into Detctor Callback******");
+            ROS_INFO_STREAM("******Into Detector Callback******");
             if (msg->ids.empty())
                 return;
             cv_bridge::CvImagePtr cv_ptr;
