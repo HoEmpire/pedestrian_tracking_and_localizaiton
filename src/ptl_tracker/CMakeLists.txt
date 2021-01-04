@@ -12,13 +12,14 @@ find_package(catkin
     ptl_msgs
     cv_bridge
     tf2_ros
+    tf2_sensor_msgs
     pcl_ros
 )
 
 catkin_package(
     INCLUDE_DIRS include
     LIBRARIES ${PROJECT_NAME}
-    CATKIN_DEPENDS roscpp ptl_msgs
+    CATKIN_DEPENDS roscpp ptl_msgs tf2_sensor_msgs
     DEPENDS)
 
 find_package(OpenCV 3 REQUIRED)
@@ -36,9 +37,11 @@ find_library(OpenTracker_LIBS libopentracker.so /usr/local/lib)
 add_library(tracker_lib src/local_object.cpp src/tracker.cpp)
 target_link_libraries(tracker_lib ${OpenTracker_LIBS} ${OpenCV_LIBS} ${catkin_LIBRARIES}) 
 
+add_library(pcp_lib src/point_cloud_processor.cpp)
+
 add_executable(tracker src/main.cpp) 
 target_link_libraries(tracker tracker_lib)
 add_dependencies(tracker ptl_msgs_generate_messages_cpp)
 
 add_executable(tf_test src/test.cpp) 
-target_link_libraries(tf_test ${catkin_LIBRARIES})
+target_link_libraries(tf_test pcp_lib ${catkin_LIBRARIES})

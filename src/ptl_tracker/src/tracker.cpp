@@ -19,6 +19,7 @@ namespace ptl
             id = 0;
             nh_ = n;
             load_config(nh_);
+            tf_listener = new tf2_ros::TransformListener(tf_buffer);
             m_track_vis_pub = n->advertise<sensor_msgs::Image>("tracker_results", 1);
             m_track_to_reid_pub = n->advertise<ptl_msgs::DeadTracker>("tracker_to_reid", 1);
             m_detector_sub = n->subscribe("/ptl_reid/detector_to_reid_to_tracker", 1, &TrackerInterface::detector_result_callback, this);
