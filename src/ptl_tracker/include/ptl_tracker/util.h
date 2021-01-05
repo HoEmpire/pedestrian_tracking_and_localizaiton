@@ -32,6 +32,11 @@ struct TrackerParam
     float scale_weight = 0.95;
 };
 
+struct CameraIntrinsic
+{
+    float fx, fy, cx, cy;
+};
+
 inline cv::Rect2d BboxPadding(cv::Rect2d bbox_to_pad, cv::Rect2d bbox_max, int padding_pixel)
 {
     return (cv::Rect2d(bbox_to_pad.x - padding_pixel,

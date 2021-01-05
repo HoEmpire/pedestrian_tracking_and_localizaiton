@@ -1,7 +1,7 @@
 #pragma once
 #include <opencv2/opencv.hpp>
 #include "opentracker/kcf/kcftracker.hpp"
-#include <geometry_msgs/Pose.h>
+#include <geometry_msgs/Point.h>
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
 #include <ros/ros.h>
@@ -28,12 +28,12 @@ namespace ptl
             int tracking_fail_count;
             int detector_update_count;
             int overlap_count;
-            geometry_msgs::Point position_local;
             cv::Scalar color;
             bool is_track_succeed;
             std::vector<cv::Mat> img_blocks;
             std::vector<Eigen::VectorXf> features;
             timer time;
+            geometry_msgs::Point position;
 
         private:
             bool HOG = true;

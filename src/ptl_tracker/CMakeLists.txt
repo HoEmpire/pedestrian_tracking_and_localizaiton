@@ -13,6 +13,7 @@ find_package(catkin
     cv_bridge
     tf2_ros
     tf2_sensor_msgs
+    tf2_geometry_msgs
     pcl_ros
 )
 
@@ -40,7 +41,7 @@ target_link_libraries(tracker_lib ${OpenTracker_LIBS} ${OpenCV_LIBS} ${catkin_LI
 add_library(pcp_lib src/point_cloud_processor.cpp)
 
 add_executable(tracker src/main.cpp) 
-target_link_libraries(tracker tracker_lib)
+target_link_libraries(tracker tracker_lib pcp_lib)
 add_dependencies(tracker ptl_msgs_generate_messages_cpp)
 
 add_executable(tf_test src/test.cpp) 

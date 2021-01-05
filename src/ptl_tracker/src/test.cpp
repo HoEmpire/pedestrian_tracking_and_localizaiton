@@ -5,6 +5,7 @@
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include <geometry_msgs/TransformStamped.h>
 #include <geometry_msgs/Point.h>
+#include <sensor_msgs/CompressedImage.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <pcl_ros/point_cloud.h>
 
@@ -28,12 +29,16 @@
 #include <visualization_msgs/Marker.h>
 #include <ptl_tracker/timer.hpp>
 #include "ptl_tracker/point_cloud_processor.h"
+
+#include <message_filters/subscriber.h>
+#include <message_filters/synchronizer.h>
+#include <message_filters/sync_policies/approximate_time.h>
 using namespace std;
 
 geometry_msgs::TransformStamped lidar2map;
 pcl::PointCloud<pcl::PointXYZI> pc_filtered;
 visualization_msgs::Marker markers_global;
-void point_cloud_callback(const sensor_msgs::PointCloud2ConstPtr &msg_pc, ros::Publisher pub_vis, ros::Publisher pub_vis_global)
+void point_cloud_callback(const sensor_msgs::CompressedImageConstPtr &msg_img, const sensor_msgs::PointCloud2ConstPtr &msg_pc, ros::Publisher pub_vis, ros::Publisher pub_vis_global)
 {
     timer a;
     pcl::PointCloud<pcl::PointXYZI> point_cloud;
@@ -91,8 +96,15 @@ int main(int argc, char **argv)
     ros::Publisher pub = node.advertise<sensor_msgs::PointCloud2>("/pc_debug", 1);
     ros::Publisher pub_vis = node.advertise<visualization_msgs::Marker>("/pub_vis", 1);
     ros::Publisher pub_vis_global = node.advertise<visualization_msgs::Marker>("/pub_vis_global", 1);
-    auto point_cloud_callback_bind = std::bind(point_cloud_callback, std::placeholders::_1, pub_vis, pub_vis_global);
-    ros::Subscriber sub = node.subscribe<sensor_msgs::PointCloud2>("/rslidar_points", 1, point_cloud_callback_bind);
+    // auto point_cloud_callback_bind = std::bind(point_cloud_callback, std::placeholders::_1, pub_vis, pub_vis_global);
+
+    message_filters::Subscriber<sensor_msgs::CompressedImage> m_image_sub;
+    message_filters::Subscriber<sensor_msgs::PointCloud2> m_lidar_sub;
+    m_image_sub.subscribe(node, "/camera2/color/image_raw/compressed", 1);
+    m_lidar_sub.subscribe(node, "/rslidar_points", 1);
+    typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::CompressedImage, sensor_msgs::PointCloud2> MySyncPolicy;
+    message_filters::Synchronizer<MySyncPolicy> sync(MySyncPolicy(10), m_image_sub, m_lidar_sub);
+    sync.registerCallback(boost::bind(point_cloud_callback, _1, _2, pub_vis, pub_vis_global));
 
     markers_global.header.frame_id = "map";
     markers_global.header.stamp = ros::Time::now();

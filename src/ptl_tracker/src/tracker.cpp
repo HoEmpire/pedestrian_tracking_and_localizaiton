@@ -20,11 +20,28 @@ namespace ptl
             nh_ = n;
             load_config(nh_);
             tf_listener = new tf2_ros::TransformListener(tf_buffer);
+
+            //publisher
             m_track_vis_pub = n->advertise<sensor_msgs::Image>("tracker_results", 1);
             m_track_to_reid_pub = n->advertise<ptl_msgs::DeadTracker>("tracker_to_reid", 1);
+            m_track_marker_pub = n->advertise<visualization_msgs::Marker>("marker_vis", 1);
+
+            //subscirbe
             m_detector_sub = n->subscribe("/ptl_reid/detector_to_reid_to_tracker", 1, &TrackerInterface::detector_result_callback, this);
-            m_data_sub = n->subscribe(camera_topic, 1, &TrackerInterface::data_callback, this);
             m_reid_sub = n->subscribe("/ptl_reid/reid_to_tracker", 1, &TrackerInterface::reid_callback, this);
+
+            if (use_lidar)
+            {
+                m_image_sub.subscribe(*n, camera_topic, 1);
+                m_lidar_sub.subscribe(*n, lidar_topic, 1);
+                typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::CompressedImage, sensor_msgs::PointCloud2> MySyncPolicy;
+                sync = new message_filters::Synchronizer<MySyncPolicy>(MySyncPolicy(10), m_image_sub, m_lidar_sub);
+                sync->registerCallback(boost::bind(&TrackerInterface::track_and_locate_callback, this, _1, _2));
+            }
+            else
+            {
+                m_data_sub = n->subscribe(camera_topic, 1, &TrackerInterface::data_callback, this);
+            }
         }
 
         void TrackerInterface::detector_result_callback(const ptl_msgs::ImageBlockPtr &msg)
@@ -222,6 +239,19 @@ namespace ptl
             std::cout << std::endl;
         }
 
+        void TrackerInterface::track_and_locate_callback(const sensor_msgs::CompressedImageConstPtr &msg_img, const sensor_msgs::PointCloud2ConstPtr &msg_pc)
+        {
+            data_callback(msg_img);
+            if (local_objects_list.empty())
+                return;
+            pcl::PointCloud<pcl::PointXYZI> point_cloud;
+            pcl::fromROSMsg(*msg_pc, point_cloud);
+
+            PointCloudProcessor pcp(point_cloud, pcp_param);
+            pcp.compute();
+            match_centroid(pcp.centroids);
+        }
+
         void TrackerInterface::reid_callback(const ptl_msgs::ReidInfo &msg)
         {
             reid_infos.total_num = msg.total_num;
@@ -230,9 +260,12 @@ namespace ptl
 
         void TrackerInterface::load_config(ros::NodeHandle *n)
         {
-            GPARAM(n, "/data_topic/lidar_topic", lidar_topic);
-            GPARAM(n, "/data_topic/camera_topic", camera_topic);
-            GPARAM(n, "/data_topic/depth_topic", depth_topic);
+            GPARAM(n, "/basic/use_lidar", use_lidar);
+            GPARAM(n, "/basic/lidar_topic", lidar_topic);
+            GPARAM(n, "/basic/camera_topic", camera_topic);
+            GPARAM(n, "/basic/map_frame", map_frame);
+            GPARAM(n, "/basic/lidar_frame", lidar_frame);
+            GPARAM(n, "/basic/camera_frame", camera_frame);
 
             GPARAM(n, "/tracker/track_fail_timeout_tick", track_fail_timeout_tick);
             GPARAM(n, "/tracker/bbox_overlap_ratio", bbox_overlap_ratio_threshold);
@@ -259,6 +292,25 @@ namespace ptl
             GPARAM(n, "/kcf/template_size", tracker_param.template_size);
             GPARAM(n, "/kcf/scale_step", tracker_param.scale_step);
             GPARAM(n, "/kcf/scale_weight", tracker_param.scale_weight);
+
+            //point_cloud_processor
+            GPARAM(n, "/pc_processor/resample_size", pcp_param.resample_size);
+            GPARAM(n, "/pc_processor/x_min", pcp_param.x_min);
+            GPARAM(n, "/pc_processor/x_max", pcp_param.x_max);
+            GPARAM(n, "/pc_processor/z_min", pcp_param.z_min);
+            GPARAM(n, "/pc_processor/z_max", pcp_param.z_max);
+            GPARAM(n, "/pc_processor/std_dev_thres", pcp_param.std_dev_thres);
+            GPARAM(n, "/pc_processor/mean_k", pcp_param.mean_k);
+            GPARAM(n, "/pc_processor/cluster_tolerance", pcp_param.cluster_tolerance);
+            GPARAM(n, "/pc_processor/cluster_size_min", pcp_param.cluster_size_min);
+            GPARAM(n, "/pc_processor/cluster_size_max", pcp_param.cluster_size_max);
+            GPARAM(n, "/pc_processor/match_centroid_padding", match_centroid_padding);
+
+            //camera intrinsic
+            GPARAM(n, "/camera_intrinsic/fx", camera_intrinsic.fx);
+            GPARAM(n, "/camera_intrinsic/fy", camera_intrinsic.fy);
+            GPARAM(n, "/camera_intrinsic/cx", camera_intrinsic.cx);
+            GPARAM(n, "/camera_intrinsic/cy", camera_intrinsic.cy);
         }
 
         bool TrackerInterface::blur_detection(cv::Mat img)
@@ -302,6 +354,97 @@ namespace ptl
             {
                 return false;
             }
+        }
+
+        void TrackerInterface::match_centroid(std::vector<pcl::PointXYZ> centroids)
+        {
+            //get tf transforms
+            geometry_msgs::TransformStamped lidar2camera, lidar2map;
+            try
+            {
+                lidar2camera = tf_buffer.lookupTransform(camera_frame, lidar_frame,
+                                                         ros::Time(0), ros::Duration(0.05));
+                lidar2map = tf_buffer.lookupTransform(map_frame, lidar_frame, ros::Time(0), ros::Duration(0.05));
+            }
+            catch (tf2::TransformException &ex)
+            {
+                ROS_WARN("%s", ex.what());
+                ros::Duration(1.0).sleep();
+            }
+
+            //match centroids with local objects
+            // lock_guard<mutex> lk(mtx); //加锁pub
+            std::vector<int> matched_id(centroids.size(), -1);
+            for (int i = 0; i < matched_id.size(); i++)
+            {
+                geometry_msgs::Point centroids_camera_frame; //centroids in camera frame
+                geometry_msgs::Point centroids_lidar_frame;
+                centroids_lidar_frame.x = centroids[i].x;
+                centroids_lidar_frame.y = centroids[i].y;
+                centroids_lidar_frame.z = centroids[i].z;
+                tf2::doTransform(centroids_lidar_frame, centroids_camera_frame, lidar2camera);
+                int u = int(-centroids_camera_frame.y / centroids_camera_frame.x * camera_intrinsic.fx + camera_intrinsic.cx);
+                int v = int(-centroids_camera_frame.z / centroids_camera_frame.x * camera_intrinsic.fy + camera_intrinsic.cy);
+                ROS_INFO_STREAM("u = " << u << ", v = " << v);
+                for (int j = 0; j < local_objects_list.size(); j++)
+                {
+
+                    ROS_INFO_STREAM("umin = " << local_objects_list[j].bbox.x << ", umax = " << local_objects_list[j].bbox.x + local_objects_list[j].bbox.width);
+                    ROS_INFO_STREAM("vmin = " << local_objects_list[j].bbox.y << ", vmax = " << local_objects_list[j].bbox.y + local_objects_list[j].bbox.height);
+                    if (u < local_objects_list[j].bbox.x + local_objects_list[j].bbox.width + match_centroid_padding &&
+                        u > local_objects_list[j].bbox.x - match_centroid_padding &&
+                        v < local_objects_list[j].bbox.y + local_objects_list[j].bbox.height + match_centroid_padding &&
+                        v > local_objects_list[j].bbox.y - match_centroid_padding)
+                    {
+                        if (matched_id[i] == -1)
+                        {
+                            matched_id[i] = j;
+                        }
+                        else
+                        {
+                            matched_id[i] = -1;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            for (int i = 0; i < centroids.size(); i++)
+            {
+                if (matched_id[i] != -1)
+                {
+                    geometry_msgs::Point centroids_map_frame; //centroids in camera frame
+                    geometry_msgs::Point centroids_lidar_frame;
+                    centroids_lidar_frame.x = centroids[i].x;
+                    centroids_lidar_frame.y = centroids[i].y;
+                    centroids_lidar_frame.z = centroids[i].z;
+                    tf2::doTransform(centroids_lidar_frame, centroids_map_frame, lidar2map);
+                    local_objects_list[matched_id[i]].position.x = centroids_map_frame.x;
+                    local_objects_list[matched_id[i]].position.y = centroids_map_frame.y;
+                    local_objects_list[matched_id[i]].position.z = centroids_map_frame.z;
+                }
+            }
+
+            //visualizaztion
+            visualization_msgs::Marker markers;
+            markers.header.frame_id = "map";
+            markers.header.stamp = ros::Time::now();
+            markers.id = 0;
+            markers.ns = "points_and_lines";
+            markers.action = visualization_msgs::Marker::ADD;
+            markers.pose.orientation.w = 1.0;
+            markers.scale.x = 0.2;
+            markers.scale.y = 0.2;
+            markers.color.r = 0.0;
+            markers.color.a = 1.0;
+            markers.color.g = 1.0;
+            markers.color.b = 0.0;
+            markers.type = visualization_msgs::Marker::POINTS;
+            for (auto lo : local_objects_list)
+            {
+                markers.points.push_back(lo.position);
+            }
+            m_track_marker_pub.publish(markers);
         }
     } // namespace tracker
 

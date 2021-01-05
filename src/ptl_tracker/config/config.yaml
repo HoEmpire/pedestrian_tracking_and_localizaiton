@@ -1,7 +1,10 @@
-data_topic:
-  lidar_topic: /livox/lidar
+basic:
+  use_lidar: true
+  lidar_topic: /rslidar_points
   camera_topic: /camera2/color/image_raw/compressed
-  depth_topic: /livox/lidar
+  map_frame: map
+  lidar_frame: rslidar
+  camera_frame: camera2_link
 
 tracker:
   track_fail_timeout_tick: 20
@@ -30,3 +33,22 @@ local_database:
   blur_detection_threshold: 20.0
   record_interval: 0.1
   batch_num_min: 8
+
+pc_processor:
+  resample_size: 0.1
+  x_min: 0.0
+  x_max: 10.0
+  z_min: 0.0
+  z_max: 5.0
+  std_dev_thres: 0.1
+  mean_k: 30
+  cluster_tolerance: 0.5
+  cluster_size_min: 30
+  cluster_size_max: 10000
+  match_centroid_padding: 20
+
+camera_intrinsic:
+  fx: 616.718
+  fy: 616.703
+  cx: 431.721
+  cy: 244.603
