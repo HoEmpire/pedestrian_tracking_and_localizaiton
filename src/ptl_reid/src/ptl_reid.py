@@ -10,6 +10,8 @@ from ptl_msgs.msg import ImageBlock
 from std_msgs.msg import Int16
 from std_msgs.msg import Float32MultiArray
 from sensor_msgs.msg import Image
+from visualization_msgs.msg import MarkerArray
+from visualization_msgs.msg import Marker
 import rospy
 from cv2 import cv2 as cv2
 from collections import Counter
@@ -20,11 +22,30 @@ import model
 import utils
 
 
+def init_marker():
+    marker = Marker()
+    marker.header.frame_id = "map"
+    marker.header.stamp = rospy.Time.now()
+    marker.ns = "points_and_lines"
+    marker.action = Marker.ADD
+    marker.pose.orientation.w = 1.0
+    marker.scale.x = 0.2
+    marker.scale.y = 0.2
+    marker.scale.z = 0.5
+    marker.color.r = 1.0
+    marker.color.a = 1.0
+    marker.color.g = 0.0
+    marker.color.b = 0.0
+    marker.type = Marker.TEXT_VIEW_FACING
+    return marker
+
+
 class ReIDNode():
     def __init__(self):
         start = time.time()
         self.model = model.build_model()
         self.database = reid_database.ReIDDatabase()
+        self.markers = MarkerArray()
         rospy.init_node('ptl_reid', anonymous=True)
         rospy.Subscriber('/ptl_tracker/tracker_to_reid',
                          DeadTracker,
@@ -38,12 +59,15 @@ class ReIDNode():
                          queue_size=10)
         self.tracker_pub = rospy.Publisher('/ptl_reid/reid_to_tracker',
                                            ReidInfo,
-                                           queue_size=10)
+                                           queue_size=1)
         self.reid_vis_pub = rospy.Publisher('/ptl_reid/reid_result',
                                             Image,
-                                            queue_size=10)
+                                            queue_size=1)
+        self.position_vis_pub = rospy.Publisher('/ptl_reid/position_vis',
+                                                MarkerArray,
+                                                queue_size=1)
         self.detector_reid_to_tracker_pub = rospy.Publisher(
-            '/ptl_reid/detector_to_reid_to_tracker', ImageBlock, queue_size=10)
+            '/ptl_reid/detector_to_reid_to_tracker', ImageBlock, queue_size=1)
         rospy.loginfo("Load ReID net successfully!")
         rospy.loginfo("Init takes %f seconds", time.time() - start)
         rospy.spin()
@@ -81,7 +105,16 @@ class ReIDNode():
             start = time.time()
             is_query_new, pub_msg.last_query_id = self.query(feats_query)
             pub_msg.total_num = self.database.object_num
+            position = data.position
+
             if is_query_new:
+                marker = init_marker()
+                marker.id = pub_msg.last_query_id
+                marker.text = str(marker.id)
+                marker.pose.position.x = position.x
+                marker.pose.position.y = position.y
+                marker.pose.position.z = position.z
+                self.markers.markers.append(marker)
                 self.database.object_list[-1].img = example_block
                 vis = np.concatenate((example_block, example_block), axis=1)
                 # cv2.putText(img,'Hello World!',
@@ -95,6 +128,12 @@ class ReIDNode():
                 cv2.putText(vis, 'Add new one!', (10, 50),
                             cv2.FONT_HERSHEY_COMPLEX, 1.5, (255, 0, 255), 3)
             else:
+                self.markers.markers[
+                    pub_msg.last_query_id].pose.position.x = position.x
+                self.markers.markers[
+                    pub_msg.last_query_id].pose.position.y = position.y
+                self.markers.markers[
+                    pub_msg.last_query_id].pose.position.z = position.z
                 vis = np.concatenate(
                     (example_block,
                      self.database.object_list[pub_msg.last_query_id].img),
@@ -109,7 +148,7 @@ class ReIDNode():
 
             image_message = bridge.cv2_to_imgmsg(vis, encoding="passthrough")
             self.reid_vis_pub.publish(image_message)
-
+            self.position_vis_pub.publish(self.markers)
             rospy.loginfo("Query takes %f seconds", time.time() - start)
 
         # summary

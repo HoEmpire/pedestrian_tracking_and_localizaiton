@@ -197,6 +197,7 @@ namespace ptl
                         sensor_msgs::ImagePtr img_tmp = cv_bridge::CvImage(std_msgs::Header(), "bgr8", ib).toImageMsg();
                         msg_pub.img_blocks.push_back(*img_tmp);
                     }
+                    msg_pub.position = lo->position;
                     if (msg_pub.img_blocks.size() > batch_num_min)
                         m_track_to_reid_pub.publish(msg_pub);
                     lo = local_objects_list.erase(lo);
@@ -385,12 +386,12 @@ namespace ptl
                 tf2::doTransform(centroids_lidar_frame, centroids_camera_frame, lidar2camera);
                 int u = int(-centroids_camera_frame.y / centroids_camera_frame.x * camera_intrinsic.fx + camera_intrinsic.cx);
                 int v = int(-centroids_camera_frame.z / centroids_camera_frame.x * camera_intrinsic.fy + camera_intrinsic.cy);
-                ROS_INFO_STREAM("u = " << u << ", v = " << v);
+                // ROS_INFO_STREAM("u = " << u << ", v = " << v);
                 for (int j = 0; j < local_objects_list.size(); j++)
                 {
 
-                    ROS_INFO_STREAM("umin = " << local_objects_list[j].bbox.x << ", umax = " << local_objects_list[j].bbox.x + local_objects_list[j].bbox.width);
-                    ROS_INFO_STREAM("vmin = " << local_objects_list[j].bbox.y << ", vmax = " << local_objects_list[j].bbox.y + local_objects_list[j].bbox.height);
+                    // ROS_INFO_STREAM("umin = " << local_objects_list[j].bbox.x << ", umax = " << local_objects_list[j].bbox.x + local_objects_list[j].bbox.width);
+                    // ROS_INFO_STREAM("vmin = " << local_objects_list[j].bbox.y << ", vmax = " << local_objects_list[j].bbox.y + local_objects_list[j].bbox.height);
                     if (u < local_objects_list[j].bbox.x + local_objects_list[j].bbox.width + match_centroid_padding &&
                         u > local_objects_list[j].bbox.x - match_centroid_padding &&
                         v < local_objects_list[j].bbox.y + local_objects_list[j].bbox.height + match_centroid_padding &&
