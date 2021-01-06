@@ -25,6 +25,8 @@ namespace ptl
             m_track_vis_pub = n->advertise<sensor_msgs::Image>("tracker_results", 1);
             m_track_to_reid_pub = n->advertise<ptl_msgs::DeadTracker>("tracker_to_reid", 1);
             m_track_marker_pub = n->advertise<visualization_msgs::Marker>("marker_vis", 1);
+            m_pc_filtered_debug = n->advertise<sensor_msgs::PointCloud2>("pc_filtered", 1);
+            m_pc_cluster_debug = n->advertise<visualization_msgs::Marker>("pc_cluster", 1);
 
             //subscirbe
             m_detector_sub = n->subscribe("/ptl_reid/detector_to_reid_to_tracker", 1, &TrackerInterface::detector_result_callback, this);
@@ -250,6 +252,7 @@ namespace ptl
 
             PointCloudProcessor pcp(point_cloud, pcp_param);
             pcp.compute();
+            pcp_visulization(pcp);
             match_centroid(pcp.centroids);
         }
 
@@ -262,6 +265,7 @@ namespace ptl
         void TrackerInterface::load_config(ros::NodeHandle *n)
         {
             GPARAM(n, "/basic/use_lidar", use_lidar);
+            GPARAM(n, "/basic/enable_pcp_vis", enable_pcp_vis);
             GPARAM(n, "/basic/lidar_topic", lidar_topic);
             GPARAM(n, "/basic/camera_topic", camera_topic);
             GPARAM(n, "/basic/map_frame", map_frame);
@@ -360,7 +364,6 @@ namespace ptl
         void TrackerInterface::match_centroid(std::vector<pcl::PointXYZ> centroids)
         {
             //get tf transforms
-            geometry_msgs::TransformStamped lidar2camera, lidar2map;
             try
             {
                 lidar2camera = tf_buffer.lookupTransform(camera_frame, lidar_frame,
@@ -428,7 +431,7 @@ namespace ptl
 
             //visualizaztion
             visualization_msgs::Marker markers;
-            markers.header.frame_id = "map";
+            markers.header.frame_id = map_frame;
             markers.header.stamp = ros::Time::now();
             markers.id = 0;
             markers.ns = "points_and_lines";
@@ -446,6 +449,43 @@ namespace ptl
                 markers.points.push_back(lo.position);
             }
             m_track_marker_pub.publish(markers);
+        }
+
+        void TrackerInterface::pcp_visulization(PointCloudProcessor pcp)
+        {
+            if (!pcp.pc_final->empty())
+            {
+
+                sensor_msgs::PointCloud2 pc_msgs;
+                pcl::toROSMsg(*pcp.pc_final, pc_msgs);
+                pc_msgs.header.frame_id = lidar_frame;
+                m_pc_filtered_debug.publish(pc_msgs);
+                visualization_msgs::Marker markers;
+
+                markers.header.frame_id = map_frame;
+                markers.header.stamp = ros::Time::now();
+                markers.id = 0;
+                markers.ns = "points_and_lines";
+                markers.action = visualization_msgs::Marker::ADD;
+                markers.pose.orientation.w = 1.0;
+                markers.scale.x = 0.2;
+                markers.scale.y = 0.2;
+                markers.color.r = 0.0;
+                markers.color.a = 1.0;
+                markers.color.g = 0.0;
+                markers.color.b = 1.0;
+                markers.type = visualization_msgs::Marker::POINTS;
+                for (auto c : pcp.centroids)
+                {
+                    geometry_msgs::Point p_lidar, p_map;
+                    p_lidar.x = c.x;
+                    p_lidar.y = c.y;
+                    p_lidar.z = c.z;
+                    tf2::doTransform(p_lidar, p_map, lidar2map);
+                    markers.points.push_back(p_map);
+                    m_pc_cluster_debug.publish(markers);
+                }
+            }
         }
     } // namespace tracker
 

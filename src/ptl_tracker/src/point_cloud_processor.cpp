@@ -16,6 +16,7 @@ namespace ptl
             resample_filter.setInputCloud(_pc_origin.makeShared());
             resample_filter.setLeafSize(_param.resample_size, _param.resample_size, _param.resample_size);
             resample_filter.filter(pc_resample);
+            pc_final = pc_resample.makeShared();
         }
 
         void PointCloudProcessor::conditonal_filter()
@@ -28,9 +29,10 @@ namespace ptl
             range_cond->addComparison(pcl::FieldComparison<pcl::PointXYZI>::ConstPtr(new pcl::FieldComparison<pcl::PointXYZI>("z", pcl::ComparisonOps::LT, _param.z_max)));
             pcl::ConditionalRemoval<pcl::PointXYZI> conditional_filter;
             conditional_filter.setCondition(range_cond);
-            conditional_filter.setInputCloud(pc_resample.makeShared()); //设置输入点云
+            conditional_filter.setInputCloud(pc_resample.makeShared());
             conditional_filter.setKeepOrganized(false);
-            conditional_filter.filter(pc_conditional_filtered); //执行滤波，保存过滤结果在cloud_filtered
+            conditional_filter.filter(pc_conditional_filtered);
+            pc_final = pc_conditional_filtered.makeShared();
         }
 
         void PointCloudProcessor::statitical_filter()
@@ -41,6 +43,7 @@ namespace ptl
             // statistical_filter.setKeepOrganized(true);
             statistical_filter.setInputCloud(pc_conditional_filtered.makeShared());
             statistical_filter.filter(pc_statistical_filtered);
+            pc_final = pc_statistical_filtered.makeShared();
         }
 
         void PointCloudProcessor::clustering()

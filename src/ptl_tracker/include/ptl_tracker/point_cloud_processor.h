@@ -39,6 +39,7 @@ namespace ptl
             pcl::PointCloud<pcl::PointXYZI> pc_resample;
             pcl::PointCloud<pcl::PointXYZI> pc_conditional_filtered;
             pcl::PointCloud<pcl::PointXYZI> pc_statistical_filtered;
+            pcl::PointCloud<pcl::PointXYZI>::Ptr pc_final;
             std::vector<pcl::PointCloud<pcl::PointXYZI>> pc_clustered;
             std::vector<pcl::PointXYZ> centroids;
 

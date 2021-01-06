@@ -1,5 +1,6 @@
 basic:
   use_lidar: true
+  enable_pcp_vis: true
   lidar_topic: /rslidar_points
   camera_topic: /camera2/color/image_raw/compressed
   map_frame: map

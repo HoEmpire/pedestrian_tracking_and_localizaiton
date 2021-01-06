@@ -51,6 +51,7 @@ namespace ptl
             bool update_local_database(LocalObject local_object, const cv::Mat img_block);
             bool update_local_database(std::vector<LocalObject>::iterator local_object, const cv::Mat img_block);
             void match_centroid(std::vector<pcl::PointXYZ> centroids);
+            void pcp_visulization(PointCloudProcessor pcp);
 
         public:
             std::vector<LocalObject> local_objects_list;
@@ -61,6 +62,7 @@ namespace ptl
             int id;
             ros::NodeHandle *nh_;
             ros::Publisher m_track_vis_pub, m_track_to_reid_pub, m_track_marker_pub;
+            ros::Publisher m_pc_filtered_debug, m_pc_cluster_debug;
             ros::Subscriber m_detector_sub, m_data_sub, m_reid_sub;
             std::mutex mtx;
             struct ReidInfo reid_infos;
@@ -74,6 +76,7 @@ namespace ptl
             std::string lidar_topic, camera_topic;
             std::string map_frame, lidar_frame, camera_frame;
             bool use_lidar = false;
+            bool enable_pcp_vis = true;
             int track_fail_timeout_tick = 30;
             double bbox_overlap_ratio_threshold = 0.5;
             int track_to_reid_bbox_margin = 10;
@@ -90,6 +93,8 @@ namespace ptl
             double reid_match_bbox_size_diff = 30;
 
             int match_centroid_padding = 20;
+
+            geometry_msgs::TransformStamped lidar2camera, lidar2map;
 
             struct TrackerParam tracker_param;
             struct PointCloudProcessorParam pcp_param;
