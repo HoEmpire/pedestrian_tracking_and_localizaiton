@@ -223,6 +223,7 @@ class ReIDNode():
 
     def detector_callback(self, data):
         # rospy.loginfo("**********into detector call back***********")
+        start = time.time()
         bridge = CvBridge()
         query_img_list = []
         cvimg = bridge.imgmsg_to_cv2(data.img, "rgb8")
@@ -240,13 +241,19 @@ class ReIDNode():
             img_block[2] = (img_block[2] - 0.406) / 0.225
 
             query_img_list.append(img_block)
+        rospy.loginfo("Data preprocessing takes %f seconds",
+                      time.time() - start)
+        start = time.time()
         feats = self.cal_feat(query_img_list)
+        rospy.loginfo("Query takes %f seconds", time.time() - start)
         return_msgs = data
         for f in feats:
             feat = Float32MultiArray()
             for i in f:
                 feat.data.append(float(i))
             return_msgs.features.append(feat)
+        start = time.time()
+        rospy.loginfo("Others takes %f seconds", time.time() - start)
         self.detector_reid_to_tracker_pub.publish(return_msgs)
         # rospy.loginfo(feats.shape)
         # rospy.loginfo("**********out of detector call back***********")

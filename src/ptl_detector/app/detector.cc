@@ -29,6 +29,11 @@ DataProcessHub::DataProcessHub(ros::NodeHandle *n)
 
 void DataProcessHub::image_callback(const sensor_msgs::CompressedImageConstPtr &msg_img)
 {
+    ptl_msgs::ImageBlock image_block_msg;
+    image_block_msg.header.stamp = ros::Time::now();
+    image_block_msg.header.frame_id = msg_img->header.frame_id;
+    image_block_msg.header.seq = msg_img->header.seq;
+
     if (detector_wait_count++ % config.detect_every_k_frames != 0)
         return;
     cv_bridge::CvImagePtr cv_ptr;
@@ -41,8 +46,7 @@ void DataProcessHub::image_callback(const sensor_msgs::CompressedImageConstPtr &
     m_detected_result_pub.publish(image_msg);
 
     //publish bbox and image info for re-identificaiton
-    ptl_msgs::ImageBlock image_block_msg;
-    sensor_msgs::ImagePtr image_origin_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", cv_ptr->image).toImageMsg();
+    sensor_msgs::ImagePtr image_origin_msg = cv_bridge::CvImage(msg_img->header, "bgr8", cv_ptr->image).toImageMsg();
     image_block_msg.img = *image_origin_msg;
     std_msgs::Int16 unknown_id;
     unknown_id.data = -1;
@@ -63,6 +67,7 @@ void DataProcessHub::image_callback(const sensor_msgs::CompressedImageConstPtr &
     if (!image_block_msg.bboxes.empty())
     {
         m_image_block_pub.publish(image_block_msg);
+        ROS_INFO_STREAM("Detection takes: " << (ros::Time::now() - image_block_msg.header.stamp).toSec() * 1000 << " ms.");
     }
 }
 

@@ -9,7 +9,7 @@ namespace ptl
         }
 
         LocalObject::LocalObject(int id_init, cv::Rect2d bbox_init, cv::Mat frame,
-                                 Eigen::VectorXf feat, struct TrackerParam tracker_param_init)
+                                 Eigen::VectorXf feat, struct TrackerParam tracker_param_init, ros::Time time_now)
         {
             id = id_init;
             bbox = bbox_init;
@@ -19,6 +19,8 @@ namespace ptl
             detector_update_count = 0;
             overlap_count = 0;
             dssttracker = new kcf::KCFTracker(HOG, FIXEDWINDOW, MULTISCALE, LAB, DSST);
+            kf.init(bbox_init);
+            ros_time = time_now;
             if (DSST)
             {
                 dssttracker->detect_thresh_dsst = tracker_param.tracker_success_threshold;
@@ -45,12 +47,16 @@ namespace ptl
             time.tic();
         }
 
-        void LocalObject::update_tracker(cv::Mat frame)
+        void LocalObject::update_tracker(cv::Mat frame, ros::Time update_time)
         {
+            bbox = kf.estimate((update_time - ros_time).toSec());
+            ros_time = update_time;
             is_track_succeed = dssttracker->update(frame, bbox);
+
             detector_update_count++;
             if (is_track_succeed)
             {
+                bbox = kf.update(bbox);
                 tracking_fail_count = 0;
             }
             else
@@ -60,32 +66,34 @@ namespace ptl
             }
         }
 
-        void LocalObject::reinit(cv::Rect2d bbox_init, cv::Mat frame)
+        void LocalObject::reinit(cv::Rect2d bbox_init, cv::Mat frame, ros::Time update_time)
         {
-            bbox = bbox_init;
             tracking_fail_count = 0;
             detector_update_count = 0;
-            dssttracker = new kcf::KCFTracker(HOG, FIXEDWINDOW, MULTISCALE, LAB, DSST);
-            if (DSST)
-            {
-                dssttracker->detect_thresh_dsst = tracker_param.tracker_success_threshold;
-                dssttracker->scale_step = 1;
-            }
-            else
-            {
-                dssttracker->detect_thresh_kcf = tracker_param.tracker_success_threshold;
-                dssttracker->padding = tracker_param.padding;
-                dssttracker->interp_factor = tracker_param.interp_factor;
-                dssttracker->sigma = tracker_param.sigma;
-                dssttracker->lambda = tracker_param.lambda;
-                dssttracker->cell_size = tracker_param.cell_size;
-                dssttracker->padding = tracker_param.padding;
-                dssttracker->output_sigma_factor = tracker_param.output_sigma_factor;
-                dssttracker->template_size = tracker_param.template_size;
-                dssttracker->scale_step = tracker_param.scale_step;
-                dssttracker->scale_weight = tracker_param.scale_weight;
-            }
-            dssttracker->init(frame, bbox);
+            kf.estimate((update_time - ros_time).toSec());
+            ros_time = update_time;
+            bbox = kf.update(bbox_init);
+            // dssttracker = new kcf::KCFTracker(HOG, FIXEDWINDOW, MULTISCALE, LAB, DSST);
+            // if (DSST)
+            // {
+            //     dssttracker->detect_thresh_dsst = tracker_param.tracker_success_threshold;
+            //     dssttracker->scale_step = 1;
+            // }
+            // else
+            // {
+            //     dssttracker->detect_thresh_kcf = tracker_param.tracker_success_threshold;
+            //     dssttracker->padding = tracker_param.padding;
+            //     dssttracker->interp_factor = tracker_param.interp_factor;
+            //     dssttracker->sigma = tracker_param.sigma;
+            //     dssttracker->lambda = tracker_param.lambda;
+            //     dssttracker->cell_size = tracker_param.cell_size;
+            //     dssttracker->padding = tracker_param.padding;
+            //     dssttracker->output_sigma_factor = tracker_param.output_sigma_factor;
+            //     dssttracker->template_size = tracker_param.template_size;
+            //     dssttracker->scale_step = tracker_param.scale_step;
+            //     dssttracker->scale_weight = tracker_param.scale_weight;
+            // }
+            // dssttracker->init(frame, bbox);
         }
 
         float LocalObject::find_min_query_score(Eigen::VectorXf query)

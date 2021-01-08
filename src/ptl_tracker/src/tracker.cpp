@@ -49,6 +49,14 @@ namespace ptl
         void TrackerInterface::detector_result_callback(const ptl_msgs::ImageBlockPtr &msg)
         {
             ROS_INFO_STREAM("******Into Detector Callback******");
+            ros::Duration time = ros::Time::now() - msg->header.stamp;
+            ROS_INFO_STREAM("Time: detector->reid->tracekr end:" << time.toSec() * 1000 << "ms");
+            ROS_INFO_STREAM("Time: detector->reid->tracekr start:" << time.sec);
+            ROS_INFO_STREAM("Time: detector->reid->tracekr start:" << time.nsec);
+            ROS_INFO_STREAM("Time: now:" << ros::Time::now().sec);
+            ROS_INFO_STREAM("Time: now:" << ros::Time::now().nsec);
+            ROS_INFO_STREAM("Time: image:" << msg->header.stamp.sec);
+            ROS_INFO_STREAM("Time: image:" << msg->header.stamp.nsec);
             if (msg->ids.empty())
                 return;
             cv_bridge::CvImagePtr cv_ptr;
@@ -120,7 +128,7 @@ namespace ptl
                 {
                     ROS_INFO_STREAM("Adding Tracking Object with ID:" << id);
                     LocalObject new_object(id, Rect2d(msg->bboxes[i].data[0], msg->bboxes[i].data[1], msg->bboxes[i].data[2], msg->bboxes[i].data[3]),
-                                           cv_ptr->image, feature_ros_to_eigen(msg->features[i]), tracker_param);
+                                           cv_ptr->image, feature_ros_to_eigen(msg->features[i]), tracker_param, msg->header.stamp);
                     id++;
                     //update database
                     if (!is_blur)
@@ -138,7 +146,7 @@ namespace ptl
 
                     local_objects_list[matched_id].reinit(Rect2d(msg->bboxes[i].data[0], msg->bboxes[i].data[1],
                                                                  msg->bboxes[i].data[2], msg->bboxes[i].data[3]),
-                                                          cv_ptr->image);
+                                                          cv_ptr->image, msg->header.stamp);
                     local_objects_list[matched_id].features.push_back(feature_ros_to_eigen(msg->features[i]));
 
                     //update database
@@ -160,7 +168,8 @@ namespace ptl
             }
             ROS_INFO("------Summary End------");
 
-            ROS_INFO("******Out of Detctor Callback******");
+            time = ros::Time::now() - msg->header.stamp;
+            ROS_INFO_STREAM("Time: detector->reid->tracekr end:" << time.toSec() * 1000 << "ms");
             std::cout << std::endl;
         }
 
@@ -178,7 +187,7 @@ namespace ptl
             //update the tracker and update the local database
             for (auto lo = local_objects_list.begin(); lo < local_objects_list.end(); lo++)
             {
-                lo->update_tracker(cv_ptr->image);
+                lo->update_tracker(cv_ptr->image, msg->header.stamp);
 
                 //update database
                 if (!is_blur && lo->is_track_succeed)
@@ -215,13 +224,13 @@ namespace ptl
             Mat track_vis = cv_ptr->image.clone();
             for (auto lo : local_objects_list)
             {
-                if (lo.is_track_succeed)
-                {
-                    // std::string text;
-                    // text = "id: " + std::to_string(lo.id);
-                    cv::rectangle(track_vis, lo.bbox, lo.color, 4.0);
-                    // cv::putText(track_vis, text, cv::Point(lo.bbox.x, lo.bbox.y), cv::FONT_HERSHEY_COMPLEX, 1.5, lo.color, 4.0);
-                }
+                // if (lo.is_track_succeed)
+                // {
+                // std::string text;
+                // text = "id: " + std::to_string(lo.id);
+                cv::rectangle(track_vis, lo.bbox, lo.color, 4.0);
+                // cv::putText(track_vis, text, cv::Point(lo.bbox.x, lo.bbox.y), cv::FONT_HERSHEY_COMPLEX, 1.5, lo.color, 4.0);
+                // }
             }
             std::string reid_infos_text;
             reid_infos_text = "Total: " + std::to_string(reid_infos.total_num) +
