@@ -18,11 +18,11 @@ namespace ptl
             return cv::Rect2d(x(0) - 0.5 * _bbox.width, x(1) - 0.5 * _bbox.height, _bbox.width, _bbox.height);
         }
 
-        KalmanFilter::KalmanFilter(double Q_factor, double R_factor, double P_factor)
+        KalmanFilter::KalmanFilter(KalmanFilterParam kf_param)
         {
-            Q = Eigen::Matrix4d::Identity() * Q_factor;
-            P = Eigen::Matrix4d::Identity() * P_factor;
-            R = Eigen::Matrix2d::Identity() * R_factor;
+            Q = Eigen::Matrix4d::Identity() * kf_param.Q_factor;
+            P = Eigen::Matrix4d::Identity() * kf_param.P_factor;
+            R = Eigen::Matrix2d::Identity() * kf_param.R_factor;
 
             F = Eigen::Matrix4d::Identity();
             H = Eigen::MatrixXd::Identity(2, 4);
@@ -39,11 +39,20 @@ namespace ptl
             _bbox = bbox;
         }
 
-        cv::Rect2d KalmanFilter::estimate(double time)
+        cv::Rect2d KalmanFilter::estimate(double dt)
         {
-            F.block<2, 2>(0, 2) = Eigen::Matrix2d::Identity() * time;
+            F.block<2, 2>(0, 2) = Eigen::Matrix2d::Identity() * dt;
+            std::cout << "estimate: dt = " << dt << std::endl;
+            std::cout << "estimate: F = \n"
+                      << F << std::endl;
             x = F * x;
-            P = F * P * F.transpose() + Q * time;
+            std::cout << "estimate: x = \n"
+                      << x << std::endl;
+            Q(0, 0) = 0.5 * dt * dt;
+            Q(1, 1) = dt;
+            P = F * P * F.transpose() + Q;
+            std::cout << "estimate: P = \n"
+                      << P << std::endl;
             return point_to_bbox(x);
         }
 
@@ -51,11 +60,17 @@ namespace ptl
         {
 
             Eigen::Vector2d z = bbox_to_measurement(measurement);
+            std::cout << "update: z = \n"
+                      << z << std::endl;
             //update
             Eigen::Matrix2d S = H * P * H.transpose() + R;
             Eigen::MatrixXd K = P * H.transpose() * S.inverse();
-            x = x + K * (z - H * x);                       //update x
-            P = (Eigen::Matrix4d::Identity() + K * H) * P; //update P
+            std::cout << "update: K = \n"
+                      << K << std::endl;
+            x = x + K * (z - H * x); //update x
+            std::cout << "update: x = \n"
+                      << x << std::endl;
+            P = (Eigen::Matrix4d::Identity() - K * H) * P; //update P
             //finally update bbox
             update_bbox(measurement);
             return point_to_bbox(x);

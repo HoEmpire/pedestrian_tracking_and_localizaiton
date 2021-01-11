@@ -72,7 +72,9 @@ namespace ptl
             message_filters::Subscriber<sensor_msgs::PointCloud2> m_lidar_sub;
             typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::CompressedImage, sensor_msgs::PointCloud2> MySyncPolicy;
             message_filters::Synchronizer<MySyncPolicy> *sync;
+            geometry_msgs::TransformStamped lidar2camera, lidar2map;
 
+            //param
             std::string lidar_topic, camera_topic;
             std::string map_frame, lidar_frame, camera_frame;
             bool use_lidar = false;
@@ -93,12 +95,10 @@ namespace ptl
             double reid_match_bbox_size_diff = 30;
 
             int match_centroid_padding = 20;
-
-            geometry_msgs::TransformStamped lidar2camera, lidar2map;
-
-            struct TrackerParam tracker_param;
-            struct PointCloudProcessorParam pcp_param;
-            struct CameraIntrinsic camera_intrinsic;
+            TrackerParam tracker_param;
+            PointCloudProcessorParam pcp_param;
+            CameraIntrinsic camera_intrinsic;
+            KalmanFilterParam kf_param;
         };
     } // namespace tracker
 

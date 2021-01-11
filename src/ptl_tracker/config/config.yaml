@@ -53,3 +53,8 @@ camera_intrinsic:
   fy: 616.703
   cx: 431.721
   cy: 244.603
+
+kalman_filter:
+  q_factor: 1000
+  r_factor: 10
+  p_factor: 1000000

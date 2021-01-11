@@ -19,7 +19,7 @@ namespace ptl
         {
         public:
             LocalObject(int id_init, cv::Rect2d bbox_init, cv::Mat frame,
-                        Eigen::VectorXf feat, struct TrackerParam track_param_init, ros::Time time_now);
+                        Eigen::VectorXf feat, TrackerParam track_param_init, KalmanFilterParam kf_param_init, ros::Time time_now);
             void update_tracker(cv::Mat frame, ros::Time update_time);
             void reinit(cv::Rect2d bbox_init, cv::Mat frame, ros::Time update_time);
             float find_min_query_score(Eigen::VectorXf);
@@ -43,8 +43,9 @@ namespace ptl
             bool MULTISCALE = true;
             bool LAB = true;
             bool DSST = false;
-            struct TrackerParam tracker_param;
-            KalmanFilter kf = KalmanFilter(10000, 1, 1000);
+            TrackerParam tracker_param;
+            KalmanFilterParam kf_param;
+            KalmanFilter *kf;
 
             kcf::KCFTracker *dssttracker;
         };

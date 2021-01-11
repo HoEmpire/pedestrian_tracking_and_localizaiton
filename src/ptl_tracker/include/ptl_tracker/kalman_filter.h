@@ -1,10 +1,12 @@
+#pragma once
 #include <opencv/cv.hpp>
 #include <Eigen/Dense>
+#include <iostream>
 namespace ptl
 {
     namespace tracker
     {
-        struct KalamFilterParam
+        struct KalmanFilterParam
         {
             double Q_factor;
             double R_factor;
@@ -14,7 +16,7 @@ namespace ptl
         class KalmanFilter
         {
         public:
-            KalmanFilter(double Q_factor, double R_factor, double P_factor);
+            KalmanFilter(KalmanFilterParam kf_param);
             void init(cv::Rect2d bbox);
             void update_bbox(cv::Rect2d bbox);
             cv::Rect2d estimate(double time);

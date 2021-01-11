@@ -9,7 +9,8 @@ namespace ptl
         }
 
         LocalObject::LocalObject(int id_init, cv::Rect2d bbox_init, cv::Mat frame,
-                                 Eigen::VectorXf feat, struct TrackerParam tracker_param_init, ros::Time time_now)
+                                 Eigen::VectorXf feat, TrackerParam tracker_param_init,
+                                 KalmanFilterParam kf_param_init, ros::Time time_now)
         {
             id = id_init;
             bbox = bbox_init;
@@ -19,7 +20,9 @@ namespace ptl
             detector_update_count = 0;
             overlap_count = 0;
             dssttracker = new kcf::KCFTracker(HOG, FIXEDWINDOW, MULTISCALE, LAB, DSST);
-            kf.init(bbox_init);
+            kf_param = kf_param_init;
+            kf = new KalmanFilter(kf_param_init);
+            kf->init(bbox_init);
             ros_time = time_now;
             if (DSST)
             {
@@ -49,14 +52,16 @@ namespace ptl
 
         void LocalObject::update_tracker(cv::Mat frame, ros::Time update_time)
         {
-            bbox = kf.estimate((update_time - ros_time).toSec());
+            bbox = kf->estimate((update_time - ros_time).toSec());
+            // std::cout << kf->x << std::endl;
             ros_time = update_time;
             is_track_succeed = dssttracker->update(frame, bbox);
 
             detector_update_count++;
             if (is_track_succeed)
             {
-                bbox = kf.update(bbox);
+                bbox = kf->update(bbox);
+                // std::cout << kf->x << std::endl;
                 tracking_fail_count = 0;
             }
             else
@@ -70,9 +75,10 @@ namespace ptl
         {
             tracking_fail_count = 0;
             detector_update_count = 0;
-            kf.estimate((update_time - ros_time).toSec());
+            kf->estimate((update_time - ros_time).toSec());
             ros_time = update_time;
-            bbox = kf.update(bbox_init);
+            bbox = kf->update(bbox_init);
+            // std::cout << kf->x << std::endl;
             // dssttracker = new kcf::KCFTracker(HOG, FIXEDWINDOW, MULTISCALE, LAB, DSST);
             // if (DSST)
             // {

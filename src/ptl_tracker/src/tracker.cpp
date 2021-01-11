@@ -128,7 +128,7 @@ namespace ptl
                 {
                     ROS_INFO_STREAM("Adding Tracking Object with ID:" << id);
                     LocalObject new_object(id, Rect2d(msg->bboxes[i].data[0], msg->bboxes[i].data[1], msg->bboxes[i].data[2], msg->bboxes[i].data[3]),
-                                           cv_ptr->image, feature_ros_to_eigen(msg->features[i]), tracker_param, msg->header.stamp);
+                                           cv_ptr->image, feature_ros_to_eigen(msg->features[i]), tracker_param, kf_param, msg->img.header.stamp);
                     id++;
                     //update database
                     if (!is_blur)
@@ -146,7 +146,7 @@ namespace ptl
 
                     local_objects_list[matched_id].reinit(Rect2d(msg->bboxes[i].data[0], msg->bboxes[i].data[1],
                                                                  msg->bboxes[i].data[2], msg->bboxes[i].data[3]),
-                                                          cv_ptr->image, msg->header.stamp);
+                                                          cv_ptr->image, msg->img.header.stamp);
                     local_objects_list[matched_id].features.push_back(feature_ros_to_eigen(msg->features[i]));
 
                     //update database
@@ -325,6 +325,11 @@ namespace ptl
             GPARAM(n, "/camera_intrinsic/fy", camera_intrinsic.fy);
             GPARAM(n, "/camera_intrinsic/cx", camera_intrinsic.cx);
             GPARAM(n, "/camera_intrinsic/cy", camera_intrinsic.cy);
+
+            //kalman filter
+            GPARAM(n, "/kalman_filter/q_factor", kf_param.Q_factor);
+            GPARAM(n, "/kalman_filter/r_factor", kf_param.R_factor);
+            GPARAM(n, "/kalman_filter/p_factor", kf_param.P_factor);
         }
 
         bool TrackerInterface::blur_detection(cv::Mat img)
