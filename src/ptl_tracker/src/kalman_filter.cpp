@@ -42,17 +42,18 @@ namespace ptl
         cv::Rect2d KalmanFilter::estimate(double dt)
         {
             F.block<2, 2>(0, 2) = Eigen::Matrix2d::Identity() * dt;
-            std::cout << "estimate: dt = " << dt << std::endl;
-            std::cout << "estimate: F = \n"
-                      << F << std::endl;
             x = F * x;
-            std::cout << "estimate: x = \n"
-                      << x << std::endl;
             Q(0, 0) = 0.5 * dt * dt;
             Q(1, 1) = dt;
             P = F * P * F.transpose() + Q;
-            std::cout << "estimate: P = \n"
-                      << P << std::endl;
+
+            // std::cout << "estimate: dt = " << dt << std::endl;
+            // std::cout << "estimate: F = \n"
+            //           << F << std::endl;
+            // std::cout << "estimate: x = \n"
+            //           << x << std::endl;
+            // std::cout << "estimate: P = \n"
+            //           << P << std::endl;
             return point_to_bbox(x);
         }
 
@@ -60,19 +61,21 @@ namespace ptl
         {
 
             Eigen::Vector2d z = bbox_to_measurement(measurement);
-            std::cout << "update: z = \n"
-                      << z << std::endl;
             //update
             Eigen::Matrix2d S = H * P * H.transpose() + R;
             Eigen::MatrixXd K = P * H.transpose() * S.inverse();
-            std::cout << "update: K = \n"
-                      << K << std::endl;
-            x = x + K * (z - H * x); //update x
-            std::cout << "update: x = \n"
-                      << x << std::endl;
+
+            x = x + K * (z - H * x);                       //update x
             P = (Eigen::Matrix4d::Identity() - K * H) * P; //update P
             //finally update bbox
             update_bbox(measurement);
+
+            // std::cout << "update: z = \n"
+            //           << z << std::endl;
+            // std::cout << "update: K = \n"
+            //           << K << std::endl;
+            // std::cout << "update: x = \n"
+            //           << x << std::endl;
             return point_to_bbox(x);
         }
     } // namespace tracker

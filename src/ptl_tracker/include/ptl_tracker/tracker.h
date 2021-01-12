@@ -48,7 +48,7 @@ namespace ptl
             void track_and_locate_callback(const sensor_msgs::CompressedImageConstPtr &msg_img, const sensor_msgs::PointCloud2ConstPtr &msg_pc);
             void reid_callback(const ptl_msgs::ReidInfo &msg);
             void load_config(ros::NodeHandle *n);
-            bool update_local_database(LocalObject local_object, const cv::Mat img_block);
+            bool update_local_database(LocalObject *local_object, const cv::Mat img_block);
             bool update_local_database(std::vector<LocalObject>::iterator local_object, const cv::Mat img_block);
             void match_centroid(std::vector<pcl::PointXYZ> centroids);
             void pcp_visulization(PointCloudProcessor pcp);

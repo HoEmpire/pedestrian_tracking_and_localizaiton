@@ -75,31 +75,32 @@ namespace ptl
         {
             tracking_fail_count = 0;
             detector_update_count = 0;
+
+            // std::cout << kf->x << std::endl;
+            dssttracker = new kcf::KCFTracker(HOG, FIXEDWINDOW, MULTISCALE, LAB, DSST);
+            if (DSST)
+            {
+                dssttracker->detect_thresh_dsst = tracker_param.tracker_success_threshold;
+                dssttracker->scale_step = 1;
+            }
+            else
+            {
+                dssttracker->detect_thresh_kcf = tracker_param.tracker_success_threshold;
+                dssttracker->padding = tracker_param.padding;
+                dssttracker->interp_factor = tracker_param.interp_factor;
+                dssttracker->sigma = tracker_param.sigma;
+                dssttracker->lambda = tracker_param.lambda;
+                dssttracker->cell_size = tracker_param.cell_size;
+                dssttracker->padding = tracker_param.padding;
+                dssttracker->output_sigma_factor = tracker_param.output_sigma_factor;
+                dssttracker->template_size = tracker_param.template_size;
+                dssttracker->scale_step = tracker_param.scale_step;
+                dssttracker->scale_weight = tracker_param.scale_weight;
+            }
+            dssttracker->init(frame, bbox_init);
             kf->estimate((update_time - ros_time).toSec());
             ros_time = update_time;
             bbox = kf->update(bbox_init);
-            // std::cout << kf->x << std::endl;
-            // dssttracker = new kcf::KCFTracker(HOG, FIXEDWINDOW, MULTISCALE, LAB, DSST);
-            // if (DSST)
-            // {
-            //     dssttracker->detect_thresh_dsst = tracker_param.tracker_success_threshold;
-            //     dssttracker->scale_step = 1;
-            // }
-            // else
-            // {
-            //     dssttracker->detect_thresh_kcf = tracker_param.tracker_success_threshold;
-            //     dssttracker->padding = tracker_param.padding;
-            //     dssttracker->interp_factor = tracker_param.interp_factor;
-            //     dssttracker->sigma = tracker_param.sigma;
-            //     dssttracker->lambda = tracker_param.lambda;
-            //     dssttracker->cell_size = tracker_param.cell_size;
-            //     dssttracker->padding = tracker_param.padding;
-            //     dssttracker->output_sigma_factor = tracker_param.output_sigma_factor;
-            //     dssttracker->template_size = tracker_param.template_size;
-            //     dssttracker->scale_step = tracker_param.scale_step;
-            //     dssttracker->scale_weight = tracker_param.scale_weight;
-            // }
-            // dssttracker->init(frame, bbox);
         }
 
         float LocalObject::find_min_query_score(Eigen::VectorXf query)

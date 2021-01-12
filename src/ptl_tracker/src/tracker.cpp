@@ -134,7 +134,7 @@ namespace ptl
                     if (!is_blur)
                     {
                         cv::Mat image_block = cv_ptr->image(new_object.bbox);
-                        update_local_database(new_object, image_block);
+                        update_local_database(&new_object, image_block);
                     }
                     local_objects_list.push_back(new_object);
                 }
@@ -154,7 +154,7 @@ namespace ptl
                     {
                         // ROS_WARN("Update database in detector callback");
                         cv::Mat image_block = cv_ptr->image(local_objects_list[matched_id].bbox & block_max);
-                        update_local_database(local_objects_list[matched_id], image_block);
+                        update_local_database(&local_objects_list[matched_id], image_block);
                     }
                 }
             }
@@ -345,13 +345,13 @@ namespace ptl
             return sigma.val[0] * sigma.val[0] < blur_detection_threshold;
         }
 
-        bool TrackerInterface::update_local_database(LocalObject local_object, const cv::Mat img_block)
+        bool TrackerInterface::update_local_database(LocalObject *local_object, const cv::Mat img_block)
         {
-            if (1.0 * img_block.rows / img_block.cols > height_width_ratio_min && 1.0 * img_block.rows / img_block.cols < height_width_ratio_max && local_object.time.toc() > record_interval)
+            if (1.0 * img_block.rows / img_block.cols > height_width_ratio_min && 1.0 * img_block.rows / img_block.cols < height_width_ratio_max && local_object->time.toc() > record_interval)
             {
-                local_object.img_blocks.push_back(img_block);
-                local_object.time.tic();
-                ROS_INFO_STREAM("Adding an image to the datebase id: " << local_object.id);
+                local_object->img_blocks.push_back(img_block);
+                local_object->time.tic();
+                ROS_INFO_STREAM("Adding an image to the datebase id: " << local_object->id);
                 return true;
             }
             else

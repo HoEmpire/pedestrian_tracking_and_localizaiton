@@ -1,5 +1,5 @@
 basic:
-  use_lidar: true
+  use_lidar: false
   enable_pcp_vis: true
   lidar_topic: /rslidar_points
   camera_topic: /camera2/color/image_raw/compressed
@@ -12,12 +12,12 @@ tracker:
   bbox_overlap_ratio: 0.01
   detector_update_timeout_tick: 20
   detector_bbox_padding: 200
-  reid_match_threshold: 450
+  reid_match_threshold: 600
   reid_match_bbox_dis: 80
   reid_match_bbox_size_diff: 80
 
 kcf:
-  tracker_success_threshold: 0.38 #0.48还行
+  tracker_success_threshold: 0.4 #0.48还行
   interp_factor: 0.012 # default 0.005
   sigma: 0.4 # default 0.4 small sigma leads to higher tracking accuracy, larger sigma leads to less tracker lost
   lambda: 0.0001 # default 0.0001
@@ -56,5 +56,5 @@ camera_intrinsic:
 
 kalman_filter:
   q_factor: 1000
-  r_factor: 10
+  r_factor: 5
   p_factor: 1000000
