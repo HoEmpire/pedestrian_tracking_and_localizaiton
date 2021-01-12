@@ -17,15 +17,15 @@ tracker:
   reid_match_bbox_size_diff: 80
 
 kcf:
-  tracker_success_threshold: 0.4 #0.48还行
+  tracker_success_threshold: 0.48 #0.48还行
   interp_factor: 0.005 # default 0.005
   sigma: 0.4 # default 0.4 small sigma leads to higher tracking accuracy, larger sigma leads to less tracker lost
   lambda: 0.0001 # default 0.0001
   cell_size: 4 # default 4
   padding: 2.5 # default 2.5
-  output_sigma_factor: 0.05 # default 0.1
+  output_sigma_factor: 0.1 # default 0.1
   template_size: 96 # default 96
-  scale_step: 1.02 # default 1.05
+  scale_step: 1.05 # default 1.05
   scale_weight: 0.95 # default 0.95
 
 local_database:
@@ -55,13 +55,13 @@ camera_intrinsic:
   cy: 244.603
 
 kalman_filter:
-  p_init_pos: 100000
-  p_init_size: 100000
+  p_init_pos: 100
+  p_init_size: 100
 
-  q_pos: 1000
-  r_pos_tracker: 10
+  q_pos: 10000
+  r_pos_tracker: 0.1
   r_pos_detector: 1
 
   q_size: 1000
-  r_size_tracker: 100
-  r_size_detector: 100
+  r_size_tracker: 10
+  r_size_detector: 10

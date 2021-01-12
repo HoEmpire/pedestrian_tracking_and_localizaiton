@@ -67,7 +67,7 @@ namespace ptl
             cv::Rect2d block_max(cv::Point2d(0, 0), cv::Point2d(cv_ptr->image.cols - 1, cv_ptr->image.rows - 1));
 
             //match the previous one
-            lock_guard<mutex> lk(mtx); //加锁pub
+            // lock_guard<mutex> lk(mtx); //加锁pub
 
             bool is_blur = blur_detection(cv_ptr->image);
 
@@ -78,6 +78,7 @@ namespace ptl
             */
             vector<int> matched_ids;
             vector<AssociationVector> detector_bbox_ass_vec;
+            mtx.lock();
             if (!local_objects_list.empty())
             {
                 ROS_INFO_STREAM(msg->bboxes.size() << " bboxes detected!");
@@ -167,6 +168,7 @@ namespace ptl
                 ROS_INFO_STREAM("id: " << lo.id << "| db imgs: " << lo.img_blocks.size() << "| overlap: " << lo.overlap_count);
             }
             ROS_INFO("------Summary End------");
+            mtx.unlock();
 
             time = ros::Time::now() - msg->header.stamp;
             ROS_INFO_STREAM("Time: detector->reid->tracekr end:" << time.toSec() * 1000 << "ms");
@@ -182,7 +184,8 @@ namespace ptl
             cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
             bool is_blur = blur_detection(cv_ptr->image);
             cv::Rect2d block_max(cv::Point2d(0, 0), cv::Point2d(cv_ptr->image.cols - 1, cv_ptr->image.rows - 1));
-            lock_guard<mutex> lk(mtx); //加锁
+            // lock_guard<mutex> lk(mtx); //加锁
+            mtx.lock();
 
             //update the tracker and update the local database
             for (auto lo = local_objects_list.begin(); lo < local_objects_list.end(); lo++)
@@ -246,6 +249,7 @@ namespace ptl
             {
                 ROS_INFO_STREAM("id: " << lo.id << "| database images num: " << lo.img_blocks.size());
             }
+            mtx.unlock();
             ROS_INFO("------Summary End------");
 
             ROS_INFO("******Out of Data Callback******");

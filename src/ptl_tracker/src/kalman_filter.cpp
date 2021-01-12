@@ -31,10 +31,14 @@ namespace ptl
             F.block<2, 2>(0, 2) = Eigen::Matrix2d::Identity() * dt;
             Eigen::Matrix4d Q_pos = Eigen::Matrix4d::Identity(),
                             Q_size = Eigen::Matrix4d::Identity();
-            Q_pos(0, 0) = 0.5 * dt * dt;
-            Q_pos(1, 1) = dt;
-            Q_size(0, 0) = 0.5 * dt * dt;
-            Q_size(1, 1) = dt;
+            Q_pos(0, 0) = 0.25 * dt * dt * dt * dt;
+            Q_pos(1, 1) = 0.25 * dt * dt * dt * dt;
+            Q_pos(2, 2) = dt * dt;
+            Q_pos(3, 3) = dt * dt;
+            Q_size(0, 0) = 0.25 * dt * dt * dt * dt;
+            Q_size(1, 1) = 0.25 * dt * dt * dt * dt;
+            Q_size(2, 2) = dt * dt;
+            Q_size(3, 3) = dt * dt;
             Q_pos *= _kf_param.q_pos;
             Q_size *= _kf_param.q_size;
 
@@ -59,6 +63,11 @@ namespace ptl
                       << P_pos << std::endl;
             std::cout << "estimate: P_size = \n"
                       << P_size << std::endl;
+
+            std::cout << "estimate: Q_pos = \n"
+                      << Q_pos << std::endl;
+            std::cout << "estimate: Q_size = \n"
+                      << Q_size << std::endl;
 
             update_bbox();
             return _bbox;
@@ -92,6 +101,10 @@ namespace ptl
 
             //finally update bbox
             update_bbox();
+            std::cout << "update: R_pos = \n"
+                      << R_pos << std::endl;
+            std::cout << "update: R_size = \n"
+                      << R_size << std::endl;
             std::cout << "update: z_pos = \n"
                       << z_pos << std::endl;
             std::cout << "update: z_size = \n"
