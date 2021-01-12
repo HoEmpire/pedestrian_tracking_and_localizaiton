@@ -52,7 +52,7 @@ namespace ptl
 
         void LocalObject::update_tracker(cv::Mat frame, ros::Time update_time)
         {
-            bbox = kf->estimate((update_time - ros_time).toSec());
+            bbox = kf->predict((update_time - ros_time).toSec());
             // std::cout << kf->x << std::endl;
             ros_time = update_time;
             is_track_succeed = dssttracker->update(frame, bbox);
@@ -60,7 +60,7 @@ namespace ptl
             detector_update_count++;
             if (is_track_succeed)
             {
-                bbox = kf->update(bbox);
+                bbox = kf->update(bbox, true);
                 // std::cout << kf->x << std::endl;
                 tracking_fail_count = 0;
             }
@@ -75,31 +75,34 @@ namespace ptl
         {
             tracking_fail_count = 0;
             detector_update_count = 0;
-            kf->estimate((update_time - ros_time).toSec());
+            kf->predict((update_time - ros_time).toSec());
             ros_time = update_time;
-            bbox = kf->update(bbox_init);
+            bbox = kf->update(bbox_init, false);
             // std::cout << kf->x << std::endl;
-            // dssttracker = new kcf::KCFTracker(HOG, FIXEDWINDOW, MULTISCALE, LAB, DSST);
-            // if (DSST)
+            // if (detector_update_count >= 10)
             // {
-            //     dssttracker->detect_thresh_dsst = tracker_param.tracker_success_threshold;
-            //     dssttracker->scale_step = 1;
+            //     dssttracker = new kcf::KCFTracker(HOG, FIXEDWINDOW, MULTISCALE, LAB, DSST);
+            //     if (DSST)
+            //     {
+            //         dssttracker->detect_thresh_dsst = tracker_param.tracker_success_threshold;
+            //         dssttracker->scale_step = 1;
+            //     }
+            //     else
+            //     {
+            //         dssttracker->detect_thresh_kcf = tracker_param.tracker_success_threshold;
+            //         dssttracker->padding = tracker_param.padding;
+            //         dssttracker->interp_factor = tracker_param.interp_factor;
+            //         dssttracker->sigma = tracker_param.sigma;
+            //         dssttracker->lambda = tracker_param.lambda;
+            //         dssttracker->cell_size = tracker_param.cell_size;
+            //         dssttracker->padding = tracker_param.padding;
+            //         dssttracker->output_sigma_factor = tracker_param.output_sigma_factor;
+            //         dssttracker->template_size = tracker_param.template_size;
+            //         dssttracker->scale_step = tracker_param.scale_step;
+            //         dssttracker->scale_weight = tracker_param.scale_weight;
+            //     }
+            //     dssttracker->init(frame, bbox);
             // }
-            // else
-            // {
-            //     dssttracker->detect_thresh_kcf = tracker_param.tracker_success_threshold;
-            //     dssttracker->padding = tracker_param.padding;
-            //     dssttracker->interp_factor = tracker_param.interp_factor;
-            //     dssttracker->sigma = tracker_param.sigma;
-            //     dssttracker->lambda = tracker_param.lambda;
-            //     dssttracker->cell_size = tracker_param.cell_size;
-            //     dssttracker->padding = tracker_param.padding;
-            //     dssttracker->output_sigma_factor = tracker_param.output_sigma_factor;
-            //     dssttracker->template_size = tracker_param.template_size;
-            //     dssttracker->scale_step = tracker_param.scale_step;
-            //     dssttracker->scale_weight = tracker_param.scale_weight;
-            // }
-            // dssttracker->init(frame, bbox);
         }
 
         float LocalObject::find_min_query_score(Eigen::VectorXf query)

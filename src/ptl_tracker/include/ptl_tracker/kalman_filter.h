@@ -8,9 +8,17 @@ namespace ptl
     {
         struct KalmanFilterParam
         {
-            double Q_factor;
-            double R_factor;
-            double P_factor;
+
+            double p_init_pos;
+            double p_init_size;
+
+            double q_pos;
+            double r_pos_tracker;
+            double r_pos_detector;
+
+            double q_size;
+            double r_size_tracker;
+            double r_size_detector;
         };
 
         class KalmanFilter
@@ -18,22 +26,22 @@ namespace ptl
         public:
             KalmanFilter(KalmanFilterParam kf_param);
             void init(cv::Rect2d bbox);
-            void update_bbox(cv::Rect2d bbox);
-            cv::Rect2d estimate(double time);
-            cv::Rect2d update(cv::Rect2d measurement);
+            void update_bbox();
+            cv::Rect2d predict(double time);
+            cv::Rect2d update(cv::Rect2d measurement, bool is_tracker);
 
-            // ensure the bbox height and width is the latest one
-            // especially in estimate step of tracker
-            Eigen::Vector4d x;
+            Eigen::Vector4d x_pos;
+            Eigen::Vector4d x_size;
 
         private:
-            inline Eigen::Vector4d bbox_to_state(cv::Rect2d bbox);
-            inline Eigen::Vector2d bbox_to_measurement(cv::Rect2d bbox);
+            void init_state();
+            void get_measurement(cv::Rect2d bbox);
             inline cv::Rect2d point_to_bbox(Eigen::Vector4d point);
 
-            Eigen::Matrix4d Q, P, F;
-            Eigen::Matrix2d R;
+            Eigen::Matrix4d F, P_pos, P_size;
             Eigen::MatrixXd H;
+            Eigen::Vector2d z_pos, z_size;
+            KalmanFilterParam _kf_param;
             cv::Rect2d _bbox;
         };
 

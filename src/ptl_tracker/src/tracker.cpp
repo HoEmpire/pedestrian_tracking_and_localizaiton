@@ -134,7 +134,7 @@ namespace ptl
                     if (!is_blur)
                     {
                         cv::Mat image_block = cv_ptr->image(new_object.bbox);
-                        update_local_database(new_object, image_block);
+                        update_local_database(&new_object, image_block);
                     }
                     local_objects_list.push_back(new_object);
                 }
@@ -154,7 +154,7 @@ namespace ptl
                     {
                         // ROS_WARN("Update database in detector callback");
                         cv::Mat image_block = cv_ptr->image(local_objects_list[matched_id].bbox & block_max);
-                        update_local_database(local_objects_list[matched_id], image_block);
+                        update_local_database(&local_objects_list[matched_id], image_block);
                     }
                 }
             }
@@ -228,7 +228,8 @@ namespace ptl
                 // {
                 // std::string text;
                 // text = "id: " + std::to_string(lo.id);
-                cv::rectangle(track_vis, lo.bbox, lo.color, 4.0);
+                if (lo.tracking_fail_count <= 20)
+                    cv::rectangle(track_vis, lo.bbox, lo.color, 4.0);
                 // cv::putText(track_vis, text, cv::Point(lo.bbox.x, lo.bbox.y), cv::FONT_HERSHEY_COMPLEX, 1.5, lo.color, 4.0);
                 // }
             }
@@ -327,9 +328,16 @@ namespace ptl
             GPARAM(n, "/camera_intrinsic/cy", camera_intrinsic.cy);
 
             //kalman filter
-            GPARAM(n, "/kalman_filter/q_factor", kf_param.Q_factor);
-            GPARAM(n, "/kalman_filter/r_factor", kf_param.R_factor);
-            GPARAM(n, "/kalman_filter/p_factor", kf_param.P_factor);
+            GPARAM(n, "/kalman_filter/p_init_pos", kf_param.p_init_pos);
+            GPARAM(n, "/kalman_filter/p_init_size", kf_param.p_init_size);
+
+            GPARAM(n, "/kalman_filter/q_pos", kf_param.q_pos);
+            GPARAM(n, "/kalman_filter/r_pos_tracker", kf_param.r_pos_tracker);
+            GPARAM(n, "/kalman_filter/r_pos_detector", kf_param.r_pos_detector);
+
+            GPARAM(n, "/kalman_filter/q_size", kf_param.q_size);
+            GPARAM(n, "/kalman_filter/r_size_tracker", kf_param.r_size_tracker);
+            GPARAM(n, "/kalman_filter/r_size_detector", kf_param.r_size_detector);
         }
 
         bool TrackerInterface::blur_detection(cv::Mat img)
@@ -345,13 +353,13 @@ namespace ptl
             return sigma.val[0] * sigma.val[0] < blur_detection_threshold;
         }
 
-        bool TrackerInterface::update_local_database(LocalObject local_object, const cv::Mat img_block)
+        bool TrackerInterface::update_local_database(LocalObject *local_object, const cv::Mat img_block)
         {
-            if (1.0 * img_block.rows / img_block.cols > height_width_ratio_min && 1.0 * img_block.rows / img_block.cols < height_width_ratio_max && local_object.time.toc() > record_interval)
+            if (1.0 * img_block.rows / img_block.cols > height_width_ratio_min && 1.0 * img_block.rows / img_block.cols < height_width_ratio_max && local_object->time.toc() > record_interval)
             {
-                local_object.img_blocks.push_back(img_block);
-                local_object.time.tic();
-                ROS_INFO_STREAM("Adding an image to the datebase id: " << local_object.id);
+                local_object->img_blocks.push_back(img_block);
+                local_object->time.tic();
+                ROS_INFO_STREAM("Adding an image to the datebase id: " << local_object->id);
                 return true;
             }
             else
