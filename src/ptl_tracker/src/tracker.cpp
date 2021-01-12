@@ -147,6 +147,7 @@ namespace ptl
                     local_objects_list[matched_id].reinit(Rect2d(msg->bboxes[i].data[0], msg->bboxes[i].data[1],
                                                                  msg->bboxes[i].data[2], msg->bboxes[i].data[3]),
                                                           cv_ptr->image, msg->img.header.stamp);
+
                     local_objects_list[matched_id].features.push_back(feature_ros_to_eigen(msg->features[i]));
 
                     //update database

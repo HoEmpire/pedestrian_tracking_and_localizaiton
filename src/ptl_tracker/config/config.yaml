@@ -55,6 +55,6 @@ camera_intrinsic:
   cy: 244.603
 
 kalman_filter:
-  q_factor: 1000
+  q_factor: 10000
   r_factor: 5
   p_factor: 1000000

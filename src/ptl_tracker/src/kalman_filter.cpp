@@ -20,7 +20,8 @@ namespace ptl
 
         KalmanFilter::KalmanFilter(KalmanFilterParam kf_param)
         {
-            Q = Eigen::Matrix4d::Identity() * kf_param.Q_factor;
+            _kf_param = kf_param;
+            // Q = Eigen::Matrix4d::Identity() * kf_param.Q_factor;
             P = Eigen::Matrix4d::Identity() * kf_param.P_factor;
             R = Eigen::Matrix2d::Identity() * kf_param.R_factor;
 
@@ -43,10 +44,13 @@ namespace ptl
         {
             F.block<2, 2>(0, 2) = Eigen::Matrix2d::Identity() * dt;
             x = F * x;
-            Q(0, 0) = 0.5 * dt * dt;
-            Q(1, 1) = dt;
+            Q = Eigen::Matrix4d::Identity();
+            Q(0, 0) = 0.25 * dt * dt * dt * dt;
+            Q(1, 1) = 0.25 * dt * dt * dt * dt;
+            Q(2, 2) = dt * dt;
+            Q(3, 3) = dt * dt;
+            Q *= _kf_param.Q_factor;
             P = F * P * F.transpose() + Q;
-
             // std::cout << "estimate: dt = " << dt << std::endl;
             // std::cout << "estimate: F = \n"
             //           << F << std::endl;

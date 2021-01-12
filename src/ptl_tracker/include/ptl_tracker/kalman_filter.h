@@ -35,6 +35,7 @@ namespace ptl
             Eigen::Matrix2d R;
             Eigen::MatrixXd H;
             cv::Rect2d _bbox;
+            KalmanFilterParam _kf_param;
         };
 
     } // namespace tracker

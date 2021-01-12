@@ -55,8 +55,8 @@ namespace ptl
             bbox = kf->estimate((update_time - ros_time).toSec());
             // std::cout << kf->x << std::endl;
             ros_time = update_time;
+            // ROS_INFO_STREAM("FUCK " << bbox.x << " " << bbox.y << " " << bbox.width << " " << bbox.height);
             is_track_succeed = dssttracker->update(frame, bbox);
-
             detector_update_count++;
             if (is_track_succeed)
             {
