@@ -378,18 +378,6 @@ namespace ptl
 
         void TrackerInterface::match_centroid(std::vector<pcl::PointXYZ> centroids)
         {
-            //get tf transforms
-            try
-            {
-                lidar2camera = tf_buffer.lookupTransform(camera_frame, lidar_frame,
-                                                         ros::Time(0), ros::Duration(0.05));
-                lidar2map = tf_buffer.lookupTransform(map_frame, lidar_frame, ros::Time(0), ros::Duration(0.05));
-            }
-            catch (tf2::TransformException &ex)
-            {
-                ROS_WARN("%s", ex.what());
-                ros::Duration(1.0).sleep();
-            }
 
             //match centroids with local objects
             // lock_guard<mutex> lk(mtx); //加锁pub
@@ -501,6 +489,29 @@ namespace ptl
                     m_pc_cluster_debug.publish(markers);
                 }
             }
+        }
+
+        void TrackerInterface::get_tf()
+        {
+            //get tf transforms
+            try
+            {
+                lidar2camera = tf_buffer.lookupTransform(camera_frame, lidar_frame,
+                                                         ros::Time(0), ros::Duration(0.05));
+                lidar2map = tf_buffer.lookupTransform(map_frame, lidar_frame, ros::Time(0), ros::Duration(0.05));
+            }
+            catch (tf2::TransformException &ex)
+            {
+                ROS_WARN("%s", ex.what());
+            }
+        }
+
+        void point_cloud_segementation(pcl::PointCloud<pcl::PointXYZI> pc)
+        {
+            pcl::PointCloud<pcl::PointXYZI> pc_new;
+            for (auto p : pc)
+            {
+                        }
         }
     } // namespace tracker
 

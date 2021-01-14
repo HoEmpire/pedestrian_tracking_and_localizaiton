@@ -52,6 +52,8 @@ namespace ptl
             bool update_local_database(std::vector<LocalObject>::iterator local_object, const cv::Mat img_block);
             void match_centroid(std::vector<pcl::PointXYZ> centroids);
             void pcp_visulization(PointCloudProcessor pcp);
+            void get_tf();
+            void point_cloud_segementation(pcl::PointCloud<pcl::PointXYZI> pc);
 
         public:
             std::vector<LocalObject> local_objects_list;
