@@ -25,8 +25,6 @@ import utils
 def init_marker():
     marker = Marker()
     marker.header.frame_id = "map"
-    marker.header.stamp = rospy.Time.now()
-    marker.ns = "points_and_lines"
     marker.action = Marker.ADD
     marker.pose.orientation.w = 1.0
     marker.scale.x = 0.2
@@ -36,7 +34,6 @@ def init_marker():
     marker.color.a = 1.0
     marker.color.g = 0.0
     marker.color.b = 0.0
-    marker.type = Marker.TEXT_VIEW_FACING
     return marker
 
 
@@ -46,6 +43,14 @@ class ReIDNode():
         self.model = model.build_model()
         self.database = reid_database.ReIDDatabase()
         self.markers = MarkerArray()
+        self.id_marker = init_marker()
+        self.id_marker.ns = "id"
+        self.id_marker.type = Marker.TEXT_VIEW_FACING
+        self.pos_marker = init_marker()
+        self.pos_marker.ns = "pos"
+        self.pos_marker.type = Marker.CUBE
+        self.markers.markers.append(self.id_marker)
+        self.markers.markers.append(self.pos_marker)
         rospy.init_node('ptl_reid', anonymous=True)
         rospy.Subscriber('/ptl_tracker/tracker_to_reid',
                          DeadTracker,
@@ -108,13 +113,18 @@ class ReIDNode():
             position = data.position
 
             if is_query_new:
-                marker = init_marker()
-                marker.id = pub_msg.last_query_id
-                marker.text = str(marker.id)
-                marker.pose.position.x = position.x
-                marker.pose.position.y = position.y
-                marker.pose.position.z = position.z
-                self.markers.markers.append(marker)
+                self.id_marker.id = pub_msg.last_query_id
+                self.id_marker.text = str(pub_msg.last_query_id)
+                self.id_marker.pose.position.x = position.x + 0.2
+                self.id_marker.pose.position.y = position.y + 0.2
+                self.id_marker.pose.position.z = position.z + 0.2
+
+                self.pos_marker.id = pub_msg.last_query_id
+                self.pos_marker.text = str(pub_msg.last_query_id)
+                self.pos_marker.pose.position.x = position.x
+                self.pos_marker.pose.position.y = position.y
+                self.pos_marker.pose.position.z = position.z
+
                 self.database.object_list[-1].img = example_block
                 vis = np.concatenate((example_block, example_block), axis=1)
                 # cv2.putText(img,'Hello World!',
@@ -128,12 +138,18 @@ class ReIDNode():
                 cv2.putText(vis, 'Add new one!', (10, 50),
                             cv2.FONT_HERSHEY_COMPLEX, 1.5, (255, 0, 255), 3)
             else:
-                self.markers.markers[
-                    pub_msg.last_query_id].pose.position.x = position.x
-                self.markers.markers[
-                    pub_msg.last_query_id].pose.position.y = position.y
-                self.markers.markers[
-                    pub_msg.last_query_id].pose.position.z = position.z
+                self.id_marker.id = pub_msg.last_query_id
+                self.id_marker.text = str(pub_msg.last_query_id)
+                self.id_marker.pose.position.x = position.x + 0.2
+                self.id_marker.pose.position.y = position.y + 0.2
+                self.id_marker.pose.position.z = position.z + 0.2
+
+                self.pos_marker.id = pub_msg.last_query_id
+                self.pos_marker.text = str(pub_msg.last_query_id)
+                self.pos_marker.pose.position.x = position.x
+                self.pos_marker.pose.position.y = position.y
+                self.pos_marker.pose.position.z = position.z
+
                 vis = np.concatenate(
                     (example_block,
                      self.database.object_list[pub_msg.last_query_id].img),
