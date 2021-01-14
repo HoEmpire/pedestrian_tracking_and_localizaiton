@@ -1,5 +1,6 @@
 #pragma once
 #include <iostream>
+#include <cmath>
 //pcl
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/filters/passthrough.h>
@@ -35,6 +36,8 @@ namespace ptl
             void compute(bool use_resample = true, bool use_conditional_filter = true,
                          bool use_statistical_filter = true, bool use_clustering = true,
                          bool use_cal_centroid = true);
+            pcl::PointXYZ get_centroid_with_max_points();
+            pcl::PointXYZ get_centroid_closest();
 
             pcl::PointCloud<pcl::PointXYZI> pc_resample;
             pcl::PointCloud<pcl::PointXYZI> pc_conditional_filtered;

@@ -26,7 +26,7 @@ namespace ptl
             m_track_to_reid_pub = n->advertise<ptl_msgs::DeadTracker>("tracker_to_reid", 1);
             m_track_marker_pub = n->advertise<visualization_msgs::Marker>("marker_vis", 1);
             m_pc_filtered_debug = n->advertise<sensor_msgs::PointCloud2>("pc_filtered", 1);
-            m_pc_cluster_debug = n->advertise<visualization_msgs::Marker>("pc_cluster", 1);
+            // m_pc_cluster_debug = n->advertise<visualization_msgs::Marker>("pc_cluster", 1);
 
             //subscirbe
             m_detector_sub = n->subscribe("/ptl_reid/detector_to_reid_to_tracker", 1, &TrackerInterface::detector_result_callback, this);
@@ -255,15 +255,24 @@ namespace ptl
         void TrackerInterface::track_and_locate_callback(const sensor_msgs::CompressedImageConstPtr &msg_img, const sensor_msgs::PointCloud2ConstPtr &msg_pc)
         {
             data_callback(msg_img);
+            get_tf();
             if (local_objects_list.empty())
+            {
+                update_tracker_pos_marker_visualization();
                 return;
+            }
             pcl::PointCloud<pcl::PointXYZI> point_cloud;
             pcl::fromROSMsg(*msg_pc, point_cloud);
 
+            //Resample and conditional filter the point cloud to reduce computation cost
+            //in the following steps
+            ROS_INFO_STREAM("Original point cloud size: " << point_cloud.size());
             PointCloudProcessor pcp(point_cloud, pcp_param);
-            pcp.compute();
-            pcp_visulization(pcp);
-            match_centroid(pcp.centroids);
+            pcp.compute(true, true, false, false, false);
+            // ROS_INFO_STREAM("After resampled, point cloud size: " << pcp.pc_resample.size());
+            ROS_INFO_STREAM("After preprocessed, point cloud size: " << pcp.pc_conditional_filtered.size());
+            match_between_2d_and_3d(pcp.pc_conditional_filtered);
+            update_tracker_pos_marker_visualization();
         }
 
         void TrackerInterface::reid_callback(const ptl_msgs::ReidInfo &msg)
@@ -376,68 +385,97 @@ namespace ptl
             }
         }
 
-        void TrackerInterface::match_centroid(std::vector<pcl::PointXYZ> centroids)
+        void TrackerInterface::match_between_2d_and_3d(pcl::PointCloud<pcl::PointXYZI> pc)
         {
-
-            //match centroids with local objects
-            // lock_guard<mutex> lk(mtx); //加锁pub
-            std::vector<int> matched_id(centroids.size(), -1);
-            for (int i = 0; i < matched_id.size(); i++)
+            pcl::PointCloud<pcl::PointXYZI> pc_filtered;
+            for (auto &lo : local_objects_list)
             {
-                geometry_msgs::Point centroids_camera_frame; //centroids in camera frame
-                geometry_msgs::Point centroids_lidar_frame;
-                centroids_lidar_frame.x = centroids[i].x;
-                centroids_lidar_frame.y = centroids[i].y;
-                centroids_lidar_frame.z = centroids[i].z;
-                tf2::doTransform(centroids_lidar_frame, centroids_camera_frame, lidar2camera);
-                int u = int(-centroids_camera_frame.y / centroids_camera_frame.x * camera_intrinsic.fx + camera_intrinsic.cx);
-                int v = int(-centroids_camera_frame.z / centroids_camera_frame.x * camera_intrinsic.fy + camera_intrinsic.cy);
+                if (lo.detector_update_count > detector_update_timeout_tick * 0.3) //TODO hard code in here
+                    continue;
+                pcl::PointCloud<pcl::PointXYZI> pc_seg = point_cloud_segementation(pc, lo.bbox);
+                if (pc_seg.empty())
+                    continue;
+                PointCloudProcessor pcp(pc_seg, pcp_param);
+                pcp.compute(false, false, true, true, true); //TODO shit code
+                if (pcp.centroids.empty())
+                    continue;
+                pc_filtered += *(pcp.pc_final);
+                pcl::PointXYZ p = pcp.get_centroid_closest();
+
+                geometry_msgs::Point p_camera_frame, p_map_frame;
+                p_camera_frame.x = p.x;
+                p_camera_frame.y = p.y;
+                p_camera_frame.z = p.z;
+
+                tf2::doTransform(p_camera_frame, p_map_frame, camera2map);
+                lo.position = p_map_frame;
+            }
+
+            //pcl to ros for debug
+            sensor_msgs::PointCloud2 pc_filtered_msg;
+            pcl::toROSMsg(pc_filtered, pc_filtered_msg);
+            tf2::doTransform(pc_filtered_msg, pc_filtered_msg, camera2map);
+            pc_filtered_msg.header.frame_id = map_frame;
+            m_pc_filtered_debug.publish(pc_filtered_msg);
+        }
+
+        void TrackerInterface::get_tf()
+        {
+            //get tf transforms
+            try
+            {
+                lidar2camera = tf_buffer.lookupTransform(camera_frame, lidar_frame,
+                                                         ros::Time(0), ros::Duration(0.05));
+                lidar2map = tf_buffer.lookupTransform(map_frame, lidar_frame, ros::Time(0), ros::Duration(0.05));
+                camera2map = tf_buffer.lookupTransform(map_frame, camera_frame, ros::Time(0), ros::Duration(0.05));
+            }
+            catch (tf2::TransformException &ex)
+            {
+                ROS_WARN("%s", ex.what());
+            }
+        }
+
+        pcl::PointCloud<pcl::PointXYZI> TrackerInterface::point_cloud_segementation(pcl::PointCloud<pcl::PointXYZI> pc, cv::Rect2d bbox)
+        {
+            pcl::PointCloud<pcl::PointXYZI> pc_new, pc_camera_frame;
+            Eigen::Quaterniond q(lidar2camera.transform.rotation.w, lidar2camera.transform.rotation.x,
+                                 lidar2camera.transform.rotation.y, lidar2camera.transform.rotation.z);
+            Eigen::Matrix4d T = Eigen::Matrix4d::Identity();
+            T.block<3, 3>(0, 0) = q.matrix();
+            T(0, 3) = lidar2camera.transform.translation.x;
+            T(1, 3) = lidar2camera.transform.translation.y;
+            T(2, 3) = lidar2camera.transform.translation.z;
+            // std::cout << T << std::endl;
+
+            pcl::transformPointCloud(pc, pc_camera_frame, T);
+            for (auto p : pc_camera_frame)
+            {
+                int u = int(-p.y / p.x * camera_intrinsic.fx + camera_intrinsic.cx);
+                int v = int(-p.z / p.x * camera_intrinsic.fy + camera_intrinsic.cy);
                 // ROS_INFO_STREAM("u = " << u << ", v = " << v);
-                for (int j = 0; j < local_objects_list.size(); j++)
-                {
 
-                    // ROS_INFO_STREAM("umin = " << local_objects_list[j].bbox.x << ", umax = " << local_objects_list[j].bbox.x + local_objects_list[j].bbox.width);
-                    // ROS_INFO_STREAM("vmin = " << local_objects_list[j].bbox.y << ", vmax = " << local_objects_list[j].bbox.y + local_objects_list[j].bbox.height);
-                    if (u < local_objects_list[j].bbox.x + local_objects_list[j].bbox.width + match_centroid_padding &&
-                        u > local_objects_list[j].bbox.x - match_centroid_padding &&
-                        v < local_objects_list[j].bbox.y + local_objects_list[j].bbox.height + match_centroid_padding &&
-                        v > local_objects_list[j].bbox.y - match_centroid_padding)
-                    {
-                        if (matched_id[i] == -1)
-                        {
-                            matched_id[i] = j;
-                        }
-                        else
-                        {
-                            matched_id[i] = -1;
-                            break;
-                        }
-                    }
+                // ROS_INFO_STREAM("umin = " << bbox.x << ", umax = " << bbox.x + bbox.width);
+                // ROS_INFO_STREAM("vmin = " << bbox.y << ", vmax = " << bbox.y + bbox.height);
+                if (u < bbox.x + bbox.width + match_centroid_padding &&
+                    u > bbox.x - match_centroid_padding &&
+                    v < bbox.y + bbox.height + match_centroid_padding &&
+                    v > bbox.y - match_centroid_padding)
+                {
+                    pc_new.points.push_back(p);
                 }
             }
+            ROS_INFO_STREAM("After reprojection " << pc_new.size() << " points remain.");
+            return pc_new;
+        }
 
-            for (int i = 0; i < centroids.size(); i++)
-            {
-                if (matched_id[i] != -1)
-                {
-                    geometry_msgs::Point centroids_map_frame; //centroids in camera frame
-                    geometry_msgs::Point centroids_lidar_frame;
-                    centroids_lidar_frame.x = centroids[i].x;
-                    centroids_lidar_frame.y = centroids[i].y;
-                    centroids_lidar_frame.z = centroids[i].z;
-                    tf2::doTransform(centroids_lidar_frame, centroids_map_frame, lidar2map);
-                    local_objects_list[matched_id[i]].position.x = centroids_map_frame.x;
-                    local_objects_list[matched_id[i]].position.y = centroids_map_frame.y;
-                    local_objects_list[matched_id[i]].position.z = centroids_map_frame.z;
-                }
-            }
-
+        void TrackerInterface::update_tracker_pos_marker_visualization()
+        {
             //visualizaztion
             visualization_msgs::Marker markers;
             markers.header.frame_id = map_frame;
             markers.header.stamp = ros::Time::now();
             markers.id = 0;
-            markers.ns = "points_and_lines";
+            markers.ns = "tracking_objects_position";
             markers.action = visualization_msgs::Marker::ADD;
             markers.pose.orientation.w = 1.0;
             markers.scale.x = 0.2;
@@ -452,66 +490,6 @@ namespace ptl
                 markers.points.push_back(lo.position);
             }
             m_track_marker_pub.publish(markers);
-        }
-
-        void TrackerInterface::pcp_visulization(PointCloudProcessor pcp)
-        {
-            if (!pcp.pc_final->empty())
-            {
-
-                sensor_msgs::PointCloud2 pc_msgs;
-                pcl::toROSMsg(*pcp.pc_final, pc_msgs);
-                pc_msgs.header.frame_id = lidar_frame;
-                m_pc_filtered_debug.publish(pc_msgs);
-                visualization_msgs::Marker markers;
-
-                markers.header.frame_id = map_frame;
-                markers.header.stamp = ros::Time::now();
-                markers.id = 0;
-                markers.ns = "points_and_lines";
-                markers.action = visualization_msgs::Marker::ADD;
-                markers.pose.orientation.w = 1.0;
-                markers.scale.x = 0.2;
-                markers.scale.y = 0.2;
-                markers.color.r = 0.0;
-                markers.color.a = 1.0;
-                markers.color.g = 0.0;
-                markers.color.b = 1.0;
-                markers.type = visualization_msgs::Marker::POINTS;
-                for (auto c : pcp.centroids)
-                {
-                    geometry_msgs::Point p_lidar, p_map;
-                    p_lidar.x = c.x;
-                    p_lidar.y = c.y;
-                    p_lidar.z = c.z;
-                    tf2::doTransform(p_lidar, p_map, lidar2map);
-                    markers.points.push_back(p_map);
-                    m_pc_cluster_debug.publish(markers);
-                }
-            }
-        }
-
-        void TrackerInterface::get_tf()
-        {
-            //get tf transforms
-            try
-            {
-                lidar2camera = tf_buffer.lookupTransform(camera_frame, lidar_frame,
-                                                         ros::Time(0), ros::Duration(0.05));
-                lidar2map = tf_buffer.lookupTransform(map_frame, lidar_frame, ros::Time(0), ros::Duration(0.05));
-            }
-            catch (tf2::TransformException &ex)
-            {
-                ROS_WARN("%s", ex.what());
-            }
-        }
-
-        void point_cloud_segementation(pcl::PointCloud<pcl::PointXYZI> pc)
-        {
-            pcl::PointCloud<pcl::PointXYZI> pc_new;
-            for (auto p : pc)
-            {
-                        }
         }
     } // namespace tracker
 

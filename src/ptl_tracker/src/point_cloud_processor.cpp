@@ -8,6 +8,10 @@ namespace ptl
         {
             _param = param;
             _pc_origin = pc_orig;
+            pc_resample = pc_orig;
+            pc_conditional_filtered = pc_orig;
+            pc_statistical_filtered = pc_orig;
+            pc_final = pc_orig.makeShared();
         }
 
         void PointCloudProcessor::resample()
@@ -16,6 +20,9 @@ namespace ptl
             resample_filter.setInputCloud(_pc_origin.makeShared());
             resample_filter.setLeafSize(_param.resample_size, _param.resample_size, _param.resample_size);
             resample_filter.filter(pc_resample);
+
+            pc_conditional_filtered = pc_resample;
+            pc_statistical_filtered = pc_resample;
             pc_final = pc_resample.makeShared();
         }
 
@@ -32,6 +39,8 @@ namespace ptl
             conditional_filter.setInputCloud(pc_resample.makeShared());
             conditional_filter.setKeepOrganized(false);
             conditional_filter.filter(pc_conditional_filtered);
+
+            pc_statistical_filtered = pc_conditional_filtered;
             pc_final = pc_conditional_filtered.makeShared();
         }
 
@@ -80,6 +89,43 @@ namespace ptl
                 pcl::computeCentroid(pcc, centroid);
                 centroids.push_back(centroid);
             }
+        }
+
+        pcl::PointXYZ PointCloudProcessor::get_centroid_with_max_points()
+        {
+            if (pc_clustered.empty())
+            {
+                std::cerr << "WARNING:get_centroid_with_max_points: No cluster available!" << std::endl;
+                return pcl::PointXYZ();
+            }
+
+            pcl::PointCloud<pcl::PointXYZI> cluster_with_max_point;
+            for (auto pcc : pc_clustered)
+            {
+                if (cluster_with_max_point.empty() || pcc.size() > cluster_with_max_point.size())
+                    cluster_with_max_point = pcc;
+            }
+
+            pcl::PointXYZ centroid;
+            pcl::computeCentroid(cluster_with_max_point, centroid);
+            return centroid;
+        }
+
+        pcl::PointXYZ PointCloudProcessor::get_centroid_closest()
+        {
+            if (centroids.empty())
+            {
+                std::cerr << "WARNING:get_centroid_closest: No centroids available!" << std::endl;
+                return pcl::PointXYZ();
+            }
+
+            pcl::PointXYZ centroid_closest;
+            for (auto pcc : centroids)
+            {
+                if ((abs(centroid_closest.z) < 1e-3) || (pcc.x < centroid_closest.x))
+                    centroid_closest = pcc;
+            }
+            return centroid_closest;
         }
 
         void PointCloudProcessor::compute(bool use_resample, bool use_conditional_filter, bool use_statistical_filter,

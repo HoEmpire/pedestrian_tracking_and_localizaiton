@@ -50,10 +50,12 @@ namespace ptl
             void load_config(ros::NodeHandle *n);
             bool update_local_database(LocalObject *local_object, const cv::Mat img_block);
             bool update_local_database(std::vector<LocalObject>::iterator local_object, const cv::Mat img_block);
-            void match_centroid(std::vector<pcl::PointXYZ> centroids);
-            void pcp_visulization(PointCloudProcessor pcp);
+            void match_between_2d_and_3d(pcl::PointCloud<pcl::PointXYZI> pc);
             void get_tf();
-            void point_cloud_segementation(pcl::PointCloud<pcl::PointXYZI> pc);
+            void update_tracker_pos_marker_visualization();
+
+            //do segementation by reprojection
+            pcl::PointCloud<pcl::PointXYZI> point_cloud_segementation(pcl::PointCloud<pcl::PointXYZI> pc, cv::Rect2d bbox);
 
         public:
             std::vector<LocalObject> local_objects_list;
@@ -74,7 +76,7 @@ namespace ptl
             message_filters::Subscriber<sensor_msgs::PointCloud2> m_lidar_sub;
             typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::CompressedImage, sensor_msgs::PointCloud2> MySyncPolicy;
             message_filters::Synchronizer<MySyncPolicy> *sync;
-            geometry_msgs::TransformStamped lidar2camera, lidar2map;
+            geometry_msgs::TransformStamped lidar2camera, lidar2map, camera2map;
 
             //param
             std::string lidar_topic, camera_topic;

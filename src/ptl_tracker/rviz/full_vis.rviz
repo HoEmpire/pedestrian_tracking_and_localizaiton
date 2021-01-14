@@ -26,7 +26,9 @@ Panels:
         - /MarkerArray1
         - /PointCloud21
         - /PointCloud22
+        - /PointCloud22/Status1
         - /Marker2
+        - /Axes3
       Splitter Ratio: 0.5
     Tree Height: 161
 Preferences:
@@ -95,7 +97,8 @@ Visualization Manager:
       Marker Topic: /ptl_reid/position_vis
       Name: MarkerArray
       Namespaces:
-        points_and_lines: true
+        id: true
+        pos: true
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -103,7 +106,7 @@ Visualization Manager:
       Marker Topic: /ptl_tracker/marker_vis
       Name: Marker
       Namespaces:
-        points_and_lines: true
+        tracking_objects_position: true
       Queue Size: 100
       Value: true
     - Alpha: 1
@@ -148,7 +151,7 @@ Visualization Manager:
       Color: 252; 233; 79
       Color Transformer: FlatColor
       Decay Time: 0
-      Enabled: false
+      Enabled: true
       Invert Rainbow: false
       Max Color: 255; 255; 255
       Max Intensity: 114.66666412353516
@@ -165,7 +168,7 @@ Visualization Manager:
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: true
-      Value: false
+      Value: true
     - Class: rviz/Marker
       Enabled: false
       Marker Topic: /ptl_tracker/pc_cluster
@@ -174,6 +177,27 @@ Visualization Manager:
         {}
       Queue Size: 100
       Value: false
+    - Class: rviz/Axes
+      Enabled: true
+      Length: 1
+      Name: Axes
+      Radius: 0.10000000149011612
+      Reference Frame: <Fixed Frame>
+      Value: true
+    - Class: rviz/Axes
+      Enabled: true
+      Length: 1
+      Name: Axes
+      Radius: 0.10000000149011612
+      Reference Frame: BASE
+      Value: true
+    - Class: rviz/Axes
+      Enabled: true
+      Length: 1
+      Name: Axes
+      Radius: 0.10000000149011612
+      Reference Frame: rslidar
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -202,16 +226,16 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 24.284318923950195
+      Distance: 13.806077003479004
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 2.5592899322509766
-        Y: -0.2714005410671234
-        Z: -0.4260988235473633
+        X: 4.61945104598999
+        Y: 1.8293713331222534
+        Z: 0.5879583954811096
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
@@ -220,7 +244,7 @@ Visualization Manager:
       Pitch: 1.5697963237762451
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 3.125265121459961
+      Yaw: 3.110294818878174
     Saved: ~
 Window Geometry:
   Displays:
