@@ -6,8 +6,9 @@
 #include <visualization_msgs/MarkerArray.h>
 #include <ros/ros.h>
 #include <Eigen/Dense>
-#include "ptl_tracker/kalman_filter.h"
 
+#include "ptl_tracker/kalman_filter.h"
+#include "ptl_tracker/kalman_filter_3d.h"
 #include "ptl_tracker/timer.hpp"
 #include "ptl_tracker/util.h"
 
@@ -19,8 +20,10 @@ namespace ptl
         {
         public:
             LocalObject(int id_init, cv::Rect2d bbox_init, cv::Mat frame,
-                        Eigen::VectorXf feat, TrackerParam track_param_init, KalmanFilterParam kf_param_init, ros::Time time_now);
+                        Eigen::VectorXf feat, TrackerParam track_param_init, KalmanFilterParam kf_param_init, KalmanFilter3dParam kf3d_param_init, ros::Time time_now);
             void update_tracker(cv::Mat frame, ros::Time update_time);
+            void update_3d_tracker(geometry_msgs::Point measurement, ros::Time time_now);
+            void update_3d_tracker(ros::Time time_now);
             void reinit(cv::Rect2d bbox_init, cv::Mat frame, ros::Time update_time);
             float find_min_query_score(Eigen::VectorXf);
 
@@ -35,7 +38,8 @@ namespace ptl
             std::vector<Eigen::VectorXf> features;
             timer time;
             geometry_msgs::Point position;
-            ros::Time ros_time;
+            ros::Time ros_time_image_last;
+            ros::Time ros_time_pc_last;
 
         private:
             bool HOG = true;
@@ -44,8 +48,8 @@ namespace ptl
             bool LAB = true;
             bool DSST = false;
             TrackerParam tracker_param;
-            KalmanFilterParam kf_param;
             KalmanFilter *kf;
+            KalmanFilter3d *kf_3d;
 
             kcf::KCFTracker *dssttracker;
         };

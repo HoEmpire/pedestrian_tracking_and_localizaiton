@@ -50,7 +50,7 @@ namespace ptl
             void load_config(ros::NodeHandle *n);
             bool update_local_database(LocalObject *local_object, const cv::Mat img_block);
             bool update_local_database(std::vector<LocalObject>::iterator local_object, const cv::Mat img_block);
-            void match_between_2d_and_3d(pcl::PointCloud<pcl::PointXYZI> pc);
+            void match_between_2d_and_3d(pcl::PointCloud<pcl::PointXYZI> pc, ros::Time ros_pc_time);
             void get_tf();
             void update_tracker_pos_marker_visualization();
 
@@ -103,6 +103,7 @@ namespace ptl
             PointCloudProcessorParam pcp_param;
             CameraIntrinsic camera_intrinsic;
             KalmanFilterParam kf_param;
+            KalmanFilter3dParam kf3d_param;
         };
     } // namespace tracker
 

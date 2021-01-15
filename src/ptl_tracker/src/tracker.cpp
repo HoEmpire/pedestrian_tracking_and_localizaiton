@@ -128,7 +128,7 @@ namespace ptl
                 {
                     ROS_INFO_STREAM("Adding Tracking Object with ID:" << id);
                     LocalObject new_object(id, Rect2d(msg->bboxes[i].data[0], msg->bboxes[i].data[1], msg->bboxes[i].data[2], msg->bboxes[i].data[3]),
-                                           cv_ptr->image, feature_ros_to_eigen(msg->features[i]), tracker_param, kf_param, msg->img.header.stamp);
+                                           cv_ptr->image, feature_ros_to_eigen(msg->features[i]), tracker_param, kf_param, kf3d_param, msg->img.header.stamp);
                     id++;
                     //update database
                     if (!is_blur)
@@ -271,7 +271,7 @@ namespace ptl
             pcp.compute(true, true, false, false, false);
             // ROS_INFO_STREAM("After resampled, point cloud size: " << pcp.pc_resample.size());
             ROS_INFO_STREAM("After preprocessed, point cloud size: " << pcp.pc_conditional_filtered.size());
-            match_between_2d_and_3d(pcp.pc_conditional_filtered);
+            match_between_2d_and_3d(pcp.pc_conditional_filtered, msg_pc->header.stamp);
             update_tracker_pos_marker_visualization();
         }
 
@@ -340,6 +340,9 @@ namespace ptl
             GPARAM(n, "/kalman_filter/q_factor", kf_param.Q_factor);
             GPARAM(n, "/kalman_filter/r_factor", kf_param.R_factor);
             GPARAM(n, "/kalman_filter/p_factor", kf_param.P_factor);
+            GPARAM(n, "/kalman_filter_3d/q_factor", kf3d_param.Q_factor);
+            GPARAM(n, "/kalman_filter_3d/r_factor", kf3d_param.R_factor);
+            GPARAM(n, "/kalman_filter_3d/p_factor", kf3d_param.P_factor);
         }
 
         bool TrackerInterface::blur_detection(cv::Mat img)
@@ -385,13 +388,17 @@ namespace ptl
             }
         }
 
-        void TrackerInterface::match_between_2d_and_3d(pcl::PointCloud<pcl::PointXYZI> pc)
+        void TrackerInterface::match_between_2d_and_3d(pcl::PointCloud<pcl::PointXYZI> pc, ros::Time ros_pc_time)
         {
             pcl::PointCloud<pcl::PointXYZI> pc_filtered;
             for (auto &lo : local_objects_list)
             {
                 if (lo.detector_update_count > detector_update_timeout_tick * 0.3) //TODO hard code in here
+                {
+                    lo.update_3d_tracker(ros_pc_time);
                     continue;
+                }
+
                 pcl::PointCloud<pcl::PointXYZI> pc_seg = point_cloud_segementation(pc, lo.bbox);
                 if (pc_seg.empty())
                     continue;
@@ -408,7 +415,7 @@ namespace ptl
                 p_camera_frame.z = p.z;
 
                 tf2::doTransform(p_camera_frame, p_map_frame, camera2map);
-                lo.position = p_map_frame;
+                lo.update_3d_tracker(p_map_frame, ros_pc_time);
             }
 
             //pcl to ros for debug

@@ -44,11 +44,11 @@ namespace ptl
         {
             F.block<2, 2>(0, 2) = Eigen::Matrix2d::Identity() * dt;
             x = F * x;
-            Q = Eigen::Matrix4d::Identity();
-            Q(0, 0) = 0.25 * dt * dt * dt * dt;
-            Q(1, 1) = 0.25 * dt * dt * dt * dt;
-            Q(2, 2) = dt * dt;
-            Q(3, 3) = dt * dt;
+            Q = Eigen::Matrix4d::Zero();
+            // Q(0, 0) = 0.25 * dt * dt * dt * dt;
+            // Q(1, 1) = 0.25 * dt * dt * dt * dt;
+            Q(2, 2) = dt;
+            Q(3, 3) = dt;
             Q *= _kf_param.Q_factor;
             P = F * P * F.transpose() + Q;
             // std::cout << "estimate: dt = " << dt << std::endl;

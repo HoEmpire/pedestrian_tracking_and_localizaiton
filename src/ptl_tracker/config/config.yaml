@@ -55,6 +55,11 @@ camera_intrinsic:
   cy: 244.603
 
 kalman_filter:
-  q_factor: 10000
+  q_factor: 100
   r_factor: 5
   p_factor: 1000000
+
+kalman_filter_3d:
+  q_factor: 0.25 # 2m/s max speed, 0.5m/s uncertainty
+  r_factor: 1 # 1m
+  p_factor: 100 # 10m position uncertainty
