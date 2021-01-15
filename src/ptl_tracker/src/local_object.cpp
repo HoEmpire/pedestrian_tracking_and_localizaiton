@@ -77,12 +77,12 @@ namespace ptl
             {
                 kf_3d->init(measurement);
                 position = measurement;
-                ros_time_pc_last = time_now;
+                ros_time_pc_last = time_now; //update time
                 return;
             }
 
             kf_3d->estimate((time_now - ros_time_pc_last).toSec());
-            ros_time_pc_last = time_now;
+            ros_time_pc_last = time_now; //update time
             kf_3d->update(measurement);
             position = kf_3d->get_pos();
         }

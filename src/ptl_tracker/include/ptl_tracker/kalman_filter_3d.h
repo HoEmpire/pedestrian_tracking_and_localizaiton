@@ -11,6 +11,8 @@ namespace ptl
             double Q_factor;
             double R_factor;
             double P_factor;
+            int tracker_fail_timeout; //using detector update tick as signal
+            double outlier_threshold; //calculated by the probability of gaussian distribution
         };
 
         class KalmanFilter3d

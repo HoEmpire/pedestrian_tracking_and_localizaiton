@@ -63,3 +63,5 @@ kalman_filter_3d:
   q_factor: 0.25 # 2m/s max speed, 0.5m/s uncertainty
   r_factor: 1 # 1m
   p_factor: 100 # 10m position uncertainty
+  tracker_fail_timeout: 5
+  outlier_threshold: 5.0

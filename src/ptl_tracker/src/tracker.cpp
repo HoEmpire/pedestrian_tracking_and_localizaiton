@@ -343,6 +343,8 @@ namespace ptl
             GPARAM(n, "/kalman_filter_3d/q_factor", kf3d_param.Q_factor);
             GPARAM(n, "/kalman_filter_3d/r_factor", kf3d_param.R_factor);
             GPARAM(n, "/kalman_filter_3d/p_factor", kf3d_param.P_factor);
+            GPARAM(n, "/kalman_filter_3d/tracker_fail_timeout", kf3d_param.tracker_fail_timeout);
+            GPARAM(n, "/kalman_filter_3d/outlier_threshold", kf3d_param.outlier_threshold);
         }
 
         bool TrackerInterface::blur_detection(cv::Mat img)
@@ -393,7 +395,7 @@ namespace ptl
             pcl::PointCloud<pcl::PointXYZI> pc_filtered;
             for (auto &lo : local_objects_list)
             {
-                if (lo.detector_update_count > detector_update_timeout_tick * 0.3) //TODO hard code in here
+                if (lo.detector_update_count > kf3d_param.tracker_fail_timeout) //TODO hard code in here
                 {
                     lo.update_3d_tracker(ros_pc_time);
                     continue;
