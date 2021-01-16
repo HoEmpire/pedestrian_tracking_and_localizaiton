@@ -38,7 +38,7 @@ local_database:
 pc_processor:
   resample_size: 0.1
   x_min: 0.0
-  x_max: 7.0
+  x_max: 15.0
   z_min: 0.0
   z_max: 4.0
   std_dev_thres: 0.1
@@ -60,8 +60,9 @@ kalman_filter:
   p_factor: 1000000
 
 kalman_filter_3d:
-  q_factor: 0.25 # 2m/s max speed, 0.5m/s uncertainty
-  r_factor: 1 # 1m
-  p_factor: 100 # 10m position uncertainty
-  tracker_fail_timeout: 5
-  outlier_threshold: 5.0
+  q_factor: 1 # 2m/s max speed, 0.5m/s uncertainty
+  r_factor: 0.25 # 1m
+  p_factor: 1000 # 10m position uncertainty
+  start_predict_only_timeout: 5
+  stop_track_timeout: 8
+  outlier_threshold: 4.0

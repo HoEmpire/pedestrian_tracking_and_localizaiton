@@ -40,6 +40,7 @@ namespace ptl
             geometry_msgs::Point position;
             ros::Time ros_time_image_last;
             ros::Time ros_time_pc_last;
+            bool is_overlap = false;
 
         private:
             bool HOG = true;

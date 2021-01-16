@@ -255,6 +255,7 @@ namespace ptl
         void TrackerInterface::track_and_locate_callback(const sensor_msgs::CompressedImageConstPtr &msg_img, const sensor_msgs::PointCloud2ConstPtr &msg_pc)
         {
             data_callback(msg_img);
+            update_overlap_flag();
             get_tf();
             if (local_objects_list.empty())
             {
@@ -343,7 +344,8 @@ namespace ptl
             GPARAM(n, "/kalman_filter_3d/q_factor", kf3d_param.Q_factor);
             GPARAM(n, "/kalman_filter_3d/r_factor", kf3d_param.R_factor);
             GPARAM(n, "/kalman_filter_3d/p_factor", kf3d_param.P_factor);
-            GPARAM(n, "/kalman_filter_3d/tracker_fail_timeout", kf3d_param.tracker_fail_timeout);
+            GPARAM(n, "/kalman_filter_3d/start_predict_only_timeout", kf3d_param.start_predict_only_timeout);
+            GPARAM(n, "/kalman_filter_3d/stop_track_timeout", kf3d_param.stop_track_timeout);
             GPARAM(n, "/kalman_filter_3d/outlier_threshold", kf3d_param.outlier_threshold);
         }
 
@@ -395,7 +397,13 @@ namespace ptl
             pcl::PointCloud<pcl::PointXYZI> pc_filtered;
             for (auto &lo : local_objects_list)
             {
-                if (lo.detector_update_count > kf3d_param.tracker_fail_timeout) //TODO hard code in here
+                //stop 3d tracking
+                if (lo.detector_update_count > kf3d_param.stop_track_timeout)
+                {
+                    continue;
+                }
+
+                if (lo.detector_update_count > kf3d_param.start_predict_only_timeout || lo.is_overlap) //TODO hard code in here
                 {
                     lo.update_3d_tracker(ros_pc_time);
                     continue;
@@ -499,6 +507,35 @@ namespace ptl
                 markers.points.push_back(lo.position);
             }
             m_track_marker_pub.publish(markers);
+        }
+
+        void TrackerInterface::update_overlap_flag()
+        {
+            for (auto &lo : local_objects_list)
+            {
+                lo.is_overlap = false;
+            }
+
+            for (auto &lo : local_objects_list)
+            {
+                if (lo.is_overlap)
+                {
+                    continue;
+                }
+
+                for (auto lo2 : local_objects_list)
+                {
+                    if (lo.id == lo2.id)
+                    {
+                        continue;
+                    }
+                    if ((BboxPadding(lo.bbox, match_centroid_padding) & BboxPadding(lo2.bbox, match_centroid_padding)).area() > 1e-3)
+                    {
+                        lo.is_overlap = true;
+                        lo2.is_overlap = true;
+                    }
+                }
+            }
         }
     } // namespace tracker
 

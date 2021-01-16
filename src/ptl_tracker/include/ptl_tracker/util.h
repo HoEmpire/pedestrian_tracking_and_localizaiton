@@ -46,6 +46,14 @@ inline cv::Rect2d BboxPadding(cv::Rect2d bbox_to_pad, cv::Rect2d bbox_max, int p
             bbox_max);
 }
 
+inline cv::Rect2d BboxPadding(cv::Rect2d bbox_to_pad, int padding_pixel)
+{
+    return (cv::Rect2d(bbox_to_pad.x - padding_pixel,
+                       bbox_to_pad.y - padding_pixel,
+                       bbox_to_pad.width + 2 * padding_pixel,
+                       bbox_to_pad.height + 2 * padding_pixel));
+}
+
 inline Eigen::VectorXf feature_ros_to_eigen(std_msgs::Float32MultiArray feats_ros)
 {
     Eigen::VectorXf feats_eigen(feats_ros.data.size());

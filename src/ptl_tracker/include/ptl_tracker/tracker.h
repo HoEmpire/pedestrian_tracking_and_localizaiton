@@ -53,6 +53,7 @@ namespace ptl
             void match_between_2d_and_3d(pcl::PointCloud<pcl::PointXYZI> pc, ros::Time ros_pc_time);
             void get_tf();
             void update_tracker_pos_marker_visualization();
+            void update_overlap_flag();
 
             //do segementation by reprojection
             pcl::PointCloud<pcl::PointXYZI> point_cloud_segementation(pcl::PointCloud<pcl::PointXYZI> pc, cv::Rect2d bbox);
