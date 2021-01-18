@@ -56,7 +56,9 @@ namespace ptl
             // std::cout << kf->x << std::endl;
             ros_time_image_last = update_time;
             // ROS_INFO_STREAM("FUCK " << bbox.x << " " << bbox.y << " " << bbox.width << " " << bbox.height);
+            timer kfc_time_count;
             is_track_succeed = dssttracker->update(frame, bbox);
+            ROS_INFO_STREAM("KCF update takes " << kfc_time_count.toc() << "seconds");
             detector_update_count++;
             if (is_track_succeed)
             {
@@ -126,7 +128,10 @@ namespace ptl
                 dssttracker->scale_step = tracker_param.scale_step;
                 dssttracker->scale_weight = tracker_param.scale_weight;
             }
+            timer kfc_time_count;
             dssttracker->init(frame, bbox_init);
+            ROS_INFO_STREAM("KCF reinit takes " << kfc_time_count.toc() << "seconds");
+
             kf->estimate((update_time - ros_time_image_last).toSec());
             ros_time_image_last = update_time;
             bbox = kf->update(bbox_init);

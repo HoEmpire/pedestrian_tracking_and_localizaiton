@@ -254,8 +254,11 @@ namespace ptl
 
         void TrackerInterface::track_and_locate_callback(const sensor_msgs::CompressedImageConstPtr &msg_img, const sensor_msgs::PointCloud2ConstPtr &msg_pc)
         {
+            timer efficency_timer;
             data_callback(msg_img);
             update_overlap_flag();
+            ROS_INFO_STREAM("In track_and_locate_callback: image processing takes " << efficency_timer.toc());
+            efficency_timer.tic();
             get_tf();
             if (local_objects_list.empty())
             {
@@ -274,6 +277,7 @@ namespace ptl
             ROS_INFO_STREAM("After preprocessed, point cloud size: " << pcp.pc_conditional_filtered.size());
             match_between_2d_and_3d(pcp.pc_conditional_filtered, msg_pc->header.stamp);
             update_tracker_pos_marker_visualization();
+            ROS_INFO_STREAM("In track_and_locate_callback: point cloud processing takes " << efficency_timer.toc());
         }
 
         void TrackerInterface::reid_callback(const ptl_msgs::ReidInfo &msg)

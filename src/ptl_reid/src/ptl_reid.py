@@ -7,6 +7,7 @@ from cv_bridge import CvBridge
 from ptl_msgs.msg import DeadTracker
 from ptl_msgs.msg import ReidInfo
 from ptl_msgs.msg import ImageBlock
+from ptl_msgs.msg import FrontEndInterface
 from std_msgs.msg import Int16
 from std_msgs.msg import Float32MultiArray
 from sensor_msgs.msg import Image
@@ -51,6 +52,7 @@ class ReIDNode():
         self.pos_marker.type = Marker.CUBE
         self.markers.markers.append(self.id_marker)
         self.markers.markers.append(self.pos_marker)
+        self.front_end_interface_info = FrontEndInterface()
         rospy.init_node('ptl_reid', anonymous=True)
         rospy.Subscriber('/ptl_tracker/tracker_to_reid',
                          DeadTracker,
@@ -73,6 +75,11 @@ class ReIDNode():
                                                 queue_size=1)
         self.detector_reid_to_tracker_pub = rospy.Publisher(
             '/ptl_reid/detector_to_reid_to_tracker', ImageBlock, queue_size=1)
+        self.front_end_interface_pub = rospy.Publisher(
+            '/ptl_reid/front_end_interface_pub',
+            FrontEndInterface,
+            queue_size=1)
+
         rospy.loginfo("Load ReID net successfully!")
         rospy.loginfo("Init takes %f seconds", time.time() - start)
         rospy.spin()
@@ -81,9 +88,9 @@ class ReIDNode():
         rospy.loginfo("**********into call back***********")
         bridge = CvBridge()
         query_img_list = []
-        example_block = bridge.imgmsg_to_cv2(data.img_blocks[0], "rgb8")
+        example_block_orig = bridge.imgmsg_to_cv2(data.img_blocks[0], "rgb8")
         # example_block = utils.image_block_preprocess(example_block)
-        example_block = cv2.resize(example_block, (128, 256),
+        example_block = cv2.resize(example_block_orig, (128, 256),
                                    interpolation=cv2.INTER_CUBIC)
         for img in data.img_blocks:
             img_block = bridge.imgmsg_to_cv2(img, "rgb8")
@@ -121,11 +128,17 @@ class ReIDNode():
 
                 self.pos_marker.id = pub_msg.last_query_id
                 self.pos_marker.text = str(pub_msg.last_query_id)
-                self.pos_marker.pose.position.x = position.x
-                self.pos_marker.pose.position.y = position.y
-                self.pos_marker.pose.position.z = position.z
+                self.pos_marker.pose.position = position
 
                 self.database.object_list[-1].img = example_block
+
+                # update interface data
+                self.front_end_interface_info.id.append(pub_msg.last_query_id)
+                example_block_msg = bridge.cv2_to_imgmsg(example_block, "rgb8")
+                self.front_end_interface_info.img_blocks.append(
+                    example_block_msg)
+                self.front_end_interface_info.position.append(position)
+
                 vis = np.concatenate((example_block, example_block), axis=1)
                 # cv2.putText(img,'Hello World!',
                 #     bottomLeftCornerOfText,
@@ -146,9 +159,11 @@ class ReIDNode():
 
                 self.pos_marker.id = pub_msg.last_query_id
                 self.pos_marker.text = str(pub_msg.last_query_id)
-                self.pos_marker.pose.position.x = position.x
-                self.pos_marker.pose.position.y = position.y
-                self.pos_marker.pose.position.z = position.z
+                self.pos_marker.pose.position = position
+
+                # update interface data
+                self.front_end_interface_info.position[
+                    pub_msg.last_query_id].position
 
                 vis = np.concatenate(
                     (example_block,
@@ -176,6 +191,7 @@ class ReIDNode():
         rospy.loginfo(" ")
 
         self.tracker_pub.publish(pub_msg)
+        self.front_end_interface_pub.publish(self.front_end_interface_info)
 
     def cal_feat(self, img_block):
         # rospy.loginfo(type(img_block))

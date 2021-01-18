@@ -18,6 +18,7 @@ add_message_files(
     ImageBlock.msg
     DeadTracker.msg
     ReidInfo.msg
+    FrontEndInterface.msg
 )
 
 generate_messages(
