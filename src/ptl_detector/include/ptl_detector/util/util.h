@@ -9,6 +9,7 @@ using namespace std;
 // config util
 struct ConfigSetting
 {
+    bool use_compressed_image = true;
     std::unordered_map<std::string, ModelType> net_type_table = {{"YOLOV3", ModelType::YOLOV3}, {"YOLOV3_TINY", ModelType::YOLOV3_TINY}, {"YOLOV4", ModelType::YOLOV4}, {"YOLOV4_TINY", ModelType::YOLOV4_TINY}, {"YOLOV4", ModelType::YOLOV4}, {"YOLOV5", ModelType::YOLOV5}};
     std::unordered_map<std::string, Precision> precision_table = {{"INT8", Precision::INT8}, {"FP16", Precision::FP16}, {"FP32", Precision::FP32}};
 
@@ -30,6 +31,7 @@ struct ConfigSetting
 
 void loadConfig(ros::NodeHandle n)
 {
+    n.getParam("/basic/use_compressed_image", config.use_compressed_image);
     n.getParam("/basic/lidar_topic", config.lidar_topic);
     n.getParam("/basic/camera_topic", config.camera_topic);
     n.getParam("/basic/depth_topic", config.depth_topic);

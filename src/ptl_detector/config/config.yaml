@@ -1,4 +1,5 @@
 basic:
+  use_compressed_image: false
   camera_topic: /camera2/color/image_raw/compressed
   detect_every_k_frames: 3
 
