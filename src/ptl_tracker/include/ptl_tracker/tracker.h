@@ -44,8 +44,13 @@ namespace ptl
 
         private:
             void detector_result_callback(const ptl_msgs::ImageBlockPtr &msg);
-            void data_callback(const sensor_msgs::CompressedImageConstPtr &msg);
-            void track_and_locate_callback(const sensor_msgs::CompressedImageConstPtr &msg_img, const sensor_msgs::PointCloud2ConstPtr &msg_pc);
+
+            void tracker_callback(const sensor_msgs::ImageConstPtr &msg);
+            void track_and_locate_callback(const sensor_msgs::ImageConstPtr &msg_img, const sensor_msgs::PointCloud2ConstPtr &msg_pc);
+
+            void tracker_callback_compressed(const sensor_msgs::CompressedImageConstPtr &msg);
+            void track_and_locate_callback_compressed(const sensor_msgs::CompressedImageConstPtr &msg_img, const sensor_msgs::PointCloud2ConstPtr &msg_pc);
+
             void reid_callback(const ptl_msgs::ReidInfo &msg);
             void load_config(ros::NodeHandle *n);
             bool update_local_database(LocalObject *local_object, const cv::Mat img_block);
@@ -73,15 +78,22 @@ namespace ptl
             struct ReidInfo reid_infos;
             tf2_ros::Buffer tf_buffer;
             tf2_ros::TransformListener *tf_listener;
-            message_filters::Subscriber<sensor_msgs::CompressedImage> m_image_sub;
+            message_filters::Subscriber<sensor_msgs::CompressedImage> m_compressed_image_sub;
+            message_filters::Subscriber<sensor_msgs::Image> m_image_sub;
             message_filters::Subscriber<sensor_msgs::PointCloud2> m_lidar_sub;
-            typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::CompressedImage, sensor_msgs::PointCloud2> MySyncPolicy;
+
+            typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sensor_msgs::PointCloud2> MySyncPolicy;
             message_filters::Synchronizer<MySyncPolicy> *sync;
+
+            typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::CompressedImage, sensor_msgs::PointCloud2> MySyncPolicyCompressed;
+            message_filters::Synchronizer<MySyncPolicyCompressed> *sync_compressed;
+
             geometry_msgs::TransformStamped lidar2camera, lidar2map, camera2map;
 
             //param
             std::string lidar_topic, camera_topic;
             std::string map_frame, lidar_frame, camera_frame;
+            bool use_compressed_image = true;
             bool use_lidar = false;
             bool enable_pcp_vis = true;
             int track_fail_timeout_tick = 30;

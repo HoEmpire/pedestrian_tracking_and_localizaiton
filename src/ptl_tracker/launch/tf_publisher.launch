@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<launch>
+  <rosparam command="load" file="$(find ptl_tracker)/config/tf.yaml" />
+  <node pkg="ptl_tracker" type="tf_publisher" name="tf_publisher" output="screen">
+  </node>
+</launch>
+

@@ -44,5 +44,5 @@ add_executable(tracker src/main.cpp)
 target_link_libraries(tracker tracker_lib pcp_lib)
 add_dependencies(tracker ptl_msgs_generate_messages_cpp)
 
-add_executable(tf_test src/test.cpp) 
-target_link_libraries(tf_test pcp_lib ${catkin_LIBRARIES})
+add_executable(tf_publisher src/tf_publisher.cpp) 
+target_link_libraries(tf_publisher ${catkin_LIBRARIES})

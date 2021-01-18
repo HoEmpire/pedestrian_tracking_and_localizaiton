@@ -34,15 +34,30 @@ namespace ptl
 
             if (use_lidar)
             {
-                m_image_sub.subscribe(*n, camera_topic, 1);
                 m_lidar_sub.subscribe(*n, lidar_topic, 1);
-                typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::CompressedImage, sensor_msgs::PointCloud2> MySyncPolicy;
-                sync = new message_filters::Synchronizer<MySyncPolicy>(MySyncPolicy(10), m_image_sub, m_lidar_sub);
-                sync->registerCallback(boost::bind(&TrackerInterface::track_and_locate_callback, this, _1, _2));
+                if (use_compressed_image)
+                {
+                    m_compressed_image_sub.subscribe(*n, camera_topic, 1);
+                    sync_compressed = new message_filters::Synchronizer<MySyncPolicyCompressed>(MySyncPolicyCompressed(10), m_compressed_image_sub, m_lidar_sub);
+                    sync_compressed->registerCallback(boost::bind(&TrackerInterface::track_and_locate_callback_compressed, this, _1, _2));
+                }
+                else
+                {
+                    m_image_sub.subscribe(*n, camera_topic, 1);
+                    sync = new message_filters::Synchronizer<MySyncPolicy>(MySyncPolicy(10), m_image_sub, m_lidar_sub);
+                    sync->registerCallback(boost::bind(&TrackerInterface::track_and_locate_callback, this, _1, _2));
+                }
             }
             else
             {
-                m_data_sub = n->subscribe(camera_topic, 1, &TrackerInterface::data_callback, this);
+                if (use_compressed_image)
+                {
+                    m_data_sub = n->subscribe(camera_topic, 1, &TrackerInterface::tracker_callback_compressed, this);
+                }
+                else
+                {
+                    m_data_sub = n->subscribe(camera_topic, 1, &TrackerInterface::tracker_callback, this);
+                }
             }
         }
 
@@ -174,9 +189,9 @@ namespace ptl
             std::cout << std::endl;
         }
 
-        void TrackerInterface::data_callback(const sensor_msgs::CompressedImageConstPtr &msg)
+        void TrackerInterface::tracker_callback(const sensor_msgs::ImageConstPtr &msg)
         {
-            ROS_INFO("******Into Data Callback******");
+            ROS_INFO("******Into Tracker Callback******");
             // ROS_ERROR("Into data callback");
             cv_bridge::CvImagePtr cv_ptr;
             cv::Mat image_detection_result;
@@ -252,10 +267,116 @@ namespace ptl
             std::cout << std::endl;
         }
 
-        void TrackerInterface::track_and_locate_callback(const sensor_msgs::CompressedImageConstPtr &msg_img, const sensor_msgs::PointCloud2ConstPtr &msg_pc)
+        void TrackerInterface::track_and_locate_callback(const sensor_msgs::ImageConstPtr &msg_img, const sensor_msgs::PointCloud2ConstPtr &msg_pc)
         {
             timer efficency_timer;
-            data_callback(msg_img);
+            tracker_callback(msg_img);
+            update_overlap_flag();
+            ROS_INFO_STREAM("In track_and_locate_callback: image processing takes " << efficency_timer.toc());
+            efficency_timer.tic();
+            get_tf();
+            if (local_objects_list.empty())
+            {
+                update_tracker_pos_marker_visualization();
+                return;
+            }
+            pcl::PointCloud<pcl::PointXYZI> point_cloud;
+            pcl::fromROSMsg(*msg_pc, point_cloud);
+
+            //Resample and conditional filter the point cloud to reduce computation cost
+            //in the following steps
+            ROS_INFO_STREAM("Original point cloud size: " << point_cloud.size());
+            PointCloudProcessor pcp(point_cloud, pcp_param);
+            pcp.compute(true, true, false, false, false);
+            // ROS_INFO_STREAM("After resampled, point cloud size: " << pcp.pc_resample.size());
+            ROS_INFO_STREAM("After preprocessed, point cloud size: " << pcp.pc_conditional_filtered.size());
+            match_between_2d_and_3d(pcp.pc_conditional_filtered, msg_pc->header.stamp);
+            update_tracker_pos_marker_visualization();
+            ROS_INFO_STREAM("In track_and_locate_callback: point cloud processing takes " << efficency_timer.toc());
+        }
+
+        void TrackerInterface::tracker_callback_compressed(const sensor_msgs::CompressedImageConstPtr &msg)
+        {
+            ROS_INFO("******Into Tracker Callback******");
+            // ROS_ERROR("Into data callback");
+            cv_bridge::CvImagePtr cv_ptr;
+            cv::Mat image_detection_result;
+            cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
+            bool is_blur = blur_detection(cv_ptr->image);
+            cv::Rect2d block_max(cv::Point2d(0, 0), cv::Point2d(cv_ptr->image.cols - 1, cv_ptr->image.rows - 1));
+            lock_guard<mutex> lk(mtx); //加锁
+
+            //update the tracker and update the local database
+            for (auto lo = local_objects_list.begin(); lo < local_objects_list.end(); lo++)
+            {
+                lo->update_tracker(cv_ptr->image, msg->header.stamp);
+
+                //update database
+                if (!is_blur && lo->is_track_succeed)
+                {
+                    cv::Mat image_block = cv_ptr->image(lo->bbox & block_max);
+                    update_local_database(lo, image_block);
+                }
+            }
+
+            //remove the tracker that loses track
+            for (auto lo = local_objects_list.begin(); lo < local_objects_list.end();)
+            {
+                if (lo->tracking_fail_count >= track_fail_timeout_tick || lo->detector_update_count >= detector_update_timeout_tick)
+                {
+                    ptl_msgs::DeadTracker msg_pub;
+                    for (auto ib : lo->img_blocks)
+                    {
+                        sensor_msgs::ImagePtr img_tmp = cv_bridge::CvImage(std_msgs::Header(), "bgr8", ib).toImageMsg();
+                        msg_pub.img_blocks.push_back(*img_tmp);
+                    }
+                    msg_pub.position = lo->position;
+                    if (msg_pub.img_blocks.size() > batch_num_min)
+                        m_track_to_reid_pub.publish(msg_pub);
+                    lo = local_objects_list.erase(lo);
+                    continue;
+                }
+                else
+                {
+                    lo++;
+                }
+            }
+
+            //for visualization
+            Mat track_vis = cv_ptr->image.clone();
+            for (auto lo : local_objects_list)
+            {
+                // if (lo.is_track_succeed)
+                // {
+                // std::string text;
+                // text = "id: " + std::to_string(lo.id);
+                cv::rectangle(track_vis, lo.bbox, lo.color, 4.0);
+                // cv::putText(track_vis, text, cv::Point(lo.bbox.x, lo.bbox.y), cv::FONT_HERSHEY_COMPLEX, 1.5, lo.color, 4.0);
+                // }
+            }
+            std::string reid_infos_text;
+            reid_infos_text = "Total: " + std::to_string(reid_infos.total_num) +
+                              "  Last Id: " + std::to_string(reid_infos.last_query_id);
+            cv::putText(track_vis, reid_infos_text, cv::Point(50, 50), cv::FONT_HERSHEY_COMPLEX, 1.5, cv::Scalar(0, 0, 255), 3.0);
+            m_track_vis_pub.publish(cv_bridge::CvImage(std_msgs::Header(), "bgr8", track_vis).toImageMsg());
+
+            //summary
+            ROS_INFO("------Local Object List Summary------");
+            ROS_INFO_STREAM("Local Object Num: " << local_objects_list.size());
+            for (auto lo : local_objects_list)
+            {
+                ROS_INFO_STREAM("id: " << lo.id << "| database images num: " << lo.img_blocks.size());
+            }
+            ROS_INFO("------Summary End------");
+
+            ROS_INFO("******Out of Data Callback******");
+            std::cout << std::endl;
+        }
+
+        void TrackerInterface::track_and_locate_callback_compressed(const sensor_msgs::CompressedImageConstPtr &msg_img, const sensor_msgs::PointCloud2ConstPtr &msg_pc)
+        {
+            timer efficency_timer;
+            tracker_callback_compressed(msg_img);
             update_overlap_flag();
             ROS_INFO_STREAM("In track_and_locate_callback: image processing takes " << efficency_timer.toc());
             efficency_timer.tic();
@@ -288,6 +409,7 @@ namespace ptl
 
         void TrackerInterface::load_config(ros::NodeHandle *n)
         {
+            GPARAM(n, "/basic/use_compressed_image", use_compressed_image);
             GPARAM(n, "/basic/use_lidar", use_lidar);
             GPARAM(n, "/basic/enable_pcp_vis", enable_pcp_vis);
             GPARAM(n, "/basic/lidar_topic", lidar_topic);
