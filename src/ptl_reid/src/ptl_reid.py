@@ -89,7 +89,7 @@ class ReIDNode():
         bridge = CvBridge()
         query_img_list = []
         example_block_orig = bridge.imgmsg_to_cv2(data.img_blocks[0], "rgb8")
-        # example_block = utils.image_block_preprocess(example_block)
+        example_block_orig = utils.image_block_preprocess(example_block_orig)
         example_block = cv2.resize(example_block_orig, (128, 256),
                                    interpolation=cv2.INTER_CUBIC)
         for img in data.img_blocks:
@@ -163,7 +163,7 @@ class ReIDNode():
 
                 # update interface data
                 self.front_end_interface_info.position[
-                    pub_msg.last_query_id].position
+                    pub_msg.last_query_id] = position
 
                 vis = np.concatenate(
                     (example_block,

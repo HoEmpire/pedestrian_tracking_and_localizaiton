@@ -1,4 +1,5 @@
 #include <tf2_ros/static_transform_broadcaster.h>
+#include <tf2_ros/transform_broadcaster.h>
 #include <geometry_msgs/TransformStamped.h>
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
@@ -48,8 +49,16 @@ int main(int argc, char **argv)
     lidar2camera.transform.rotation.z = q.z();
     lidar2camera.transform.rotation.w = q.w();
 
-    static tf2_ros::StaticTransformBroadcaster br;
-    br.sendTransform(map2lidar);
-    br.sendTransform(lidar2camera);
+    static tf2_ros::StaticTransformBroadcaster br_static;
+    static tf2_ros::TransformBroadcaster br;
+    br_static.sendTransform(lidar2camera);
+    ros::Rate r(1000);
+    while (ros::ok())
+    {
+        map2lidar.header.stamp = ros::Time::now();
+        br.sendTransform(map2lidar);
+        r.sleep();
+    }
+
     ros::spin();
 }
