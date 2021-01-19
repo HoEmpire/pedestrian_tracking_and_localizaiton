@@ -1,4 +1,4 @@
-#include <tf2_ros/transform_broadcaster.h>
+#include <tf2_ros/static_transform_broadcaster.h>
 #include <geometry_msgs/TransformStamped.h>
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
@@ -27,7 +27,7 @@ int main(int argc, char **argv)
     Quaterniond q(rotation[3], rotation[0], rotation[1], rotation[2]);
 
     geometry_msgs::TransformStamped map2lidar, lidar2camera;
-    map2lidar.header.stamp = ros::Time::now();
+
     map2lidar.header.frame_id = map_frame;
     map2lidar.child_frame_id = lidar_frame;
     map2lidar.transform.translation.x = 0.0;
@@ -38,7 +38,6 @@ int main(int argc, char **argv)
     map2lidar.transform.rotation.z = 0.0;
     map2lidar.transform.rotation.w = 1.0;
 
-    lidar2camera.header.stamp = ros::Time::now();
     lidar2camera.header.frame_id = lidar_frame;
     lidar2camera.child_frame_id = camera_frame;
     lidar2camera.transform.translation.x = translation[0];
@@ -49,15 +48,8 @@ int main(int argc, char **argv)
     lidar2camera.transform.rotation.z = q.z();
     lidar2camera.transform.rotation.w = q.w();
 
-    static tf2_ros::TransformBroadcaster br;
-
-    ros::Rate r(1000);
-    while (ros::ok())
-    {
-
-        br.sendTransform(map2lidar);
-        br.sendTransform(lidar2camera);
-        r.sleep();
-        ros::spinOnce();
-    }
+    static tf2_ros::StaticTransformBroadcaster br;
+    br.sendTransform(map2lidar);
+    br.sendTransform(lidar2camera);
+    ros::spin();
 }
