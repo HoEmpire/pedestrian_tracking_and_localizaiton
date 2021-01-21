@@ -335,8 +335,7 @@ namespace ptl
                 //update database
                 if (lo->is_track_succeed)
                 {
-                    cv::Mat image_block = cv_ptr->image(lo->bbox & block_max);
-                    update_local_database(lo, image_block);
+                    update_local_database(lo, cv_ptr->image(lo->bbox & block_max));
                 }
             }
 
