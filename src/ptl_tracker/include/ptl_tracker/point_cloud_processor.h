@@ -32,7 +32,7 @@ namespace ptl
         class PointCloudProcessor
         {
         public:
-            PointCloudProcessor(pcl::PointCloud<pcl::PointXYZI> pc_orig, PointCloudProcessorParam param);
+            PointCloudProcessor(const pcl::PointCloud<pcl::PointXYZI> &pc_orig, const PointCloudProcessorParam &param);
             void compute(bool use_resample = true, bool use_conditional_filter = true,
                          bool use_statistical_filter = true, bool use_clustering = true,
                          bool use_cal_centroid = true);

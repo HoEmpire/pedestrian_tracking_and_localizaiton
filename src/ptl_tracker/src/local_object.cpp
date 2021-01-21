@@ -3,19 +3,19 @@ namespace ptl
 {
     namespace tracker
     {
-        inline float cal_reid_score(Eigen::VectorXf query, Eigen::VectorXf gallery)
+        inline float cal_reid_score(const Eigen::VectorXf &query, const Eigen::VectorXf &gallery)
         {
             return (query - gallery).squaredNorm();
         }
 
-        LocalObject::LocalObject(int id_init, cv::Rect2d bbox_init, cv::Mat frame,
-                                 Eigen::VectorXf feat, TrackerParam tracker_param_init,
-                                 KalmanFilterParam kf_param_init, KalmanFilter3dParam kf3d_param_init, ros::Time time_now)
+        LocalObject::LocalObject(const int id_init, const cv::Rect2d &bbox_init, const cv::Mat &frame,
+                                 const Eigen::VectorXf &feat, const TrackerParam &track_param_init, const KalmanFilterParam &kf_param_init,
+                                 const KalmanFilter3dParam &kf3d_param_init, const ros::Time &time_now)
         {
             id = id_init;
             bbox = bbox_init;
             features.push_back(feat);
-            tracker_param = tracker_param_init;
+            tracker_param = track_param_init;
             tracking_fail_count = 0;
             detector_update_count = 0;
             overlap_count = 0;
@@ -50,7 +50,7 @@ namespace ptl
             time.tic();
         }
 
-        void LocalObject::update_tracker(cv::Mat frame, ros::Time update_time)
+        void LocalObject::update_tracker(const cv::Mat &frame, const ros::Time &update_time)
         {
             bbox = kf->estimate((update_time - ros_time_image_last).toSec());
             // std::cout << kf->x << std::endl;
@@ -73,7 +73,7 @@ namespace ptl
             }
         }
 
-        void LocalObject::update_3d_tracker(geometry_msgs::Point measurement, ros::Time time_now)
+        void LocalObject::update_3d_tracker(const geometry_msgs::Point &measurement, const ros::Time &time_now)
         {
             if (!kf_3d->is_init)
             {
@@ -89,7 +89,7 @@ namespace ptl
             position = kf_3d->get_pos();
         }
 
-        void LocalObject::update_3d_tracker(ros::Time time_now)
+        void LocalObject::update_3d_tracker(const ros::Time &time_now)
         {
             if (!kf_3d->is_init)
             {
@@ -102,7 +102,7 @@ namespace ptl
             position = kf_3d->get_pos();
         }
 
-        void LocalObject::reinit(cv::Rect2d bbox_init, cv::Mat frame, ros::Time update_time)
+        void LocalObject::reinit(const cv::Rect2d &bbox_init, const cv::Mat &frame, const ros::Time update_time)
         {
             tracking_fail_count = 0;
             detector_update_count = 0;
@@ -137,7 +137,7 @@ namespace ptl
             bbox = kf->update(bbox_init);
         }
 
-        float LocalObject::find_min_query_score(Eigen::VectorXf query)
+        float LocalObject::find_min_query_score(const Eigen::VectorXf &query)
         {
             float min_score = 100000.0;
             for (auto feat : features)

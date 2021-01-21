@@ -19,13 +19,14 @@ namespace ptl
         class LocalObject
         {
         public:
-            LocalObject(int id_init, cv::Rect2d bbox_init, cv::Mat frame,
-                        Eigen::VectorXf feat, TrackerParam track_param_init, KalmanFilterParam kf_param_init, KalmanFilter3dParam kf3d_param_init, ros::Time time_now);
-            void update_tracker(cv::Mat frame, ros::Time update_time);
-            void update_3d_tracker(geometry_msgs::Point measurement, ros::Time time_now);
-            void update_3d_tracker(ros::Time time_now);
-            void reinit(cv::Rect2d bbox_init, cv::Mat frame, ros::Time update_time);
-            float find_min_query_score(Eigen::VectorXf);
+            LocalObject(const int id_init, const cv::Rect2d &bbox_init, const cv::Mat &frame,
+                        const Eigen::VectorXf &feat, const TrackerParam &track_param_init, const KalmanFilterParam &kf_param_init,
+                        const KalmanFilter3dParam &kf3d_param_init, const ros::Time &time_now);
+            void update_tracker(const cv::Mat &frame, const ros::Time &update_time);
+            void update_3d_tracker(const geometry_msgs::Point &measurement, const ros::Time &time_now);
+            void update_3d_tracker(const ros::Time &time_now);
+            void reinit(const cv::Rect2d &bbox_init, const cv::Mat &frame, const ros::Time update_time);
+            float find_min_query_score(const Eigen::VectorXf &query);
 
             int id;
             cv::Rect2d bbox;
@@ -51,7 +52,6 @@ namespace ptl
             TrackerParam tracker_param;
             KalmanFilter *kf;
             KalmanFilter3d *kf_3d;
-
             kcf::KCFTracker *dssttracker;
         };
     } // namespace tracker

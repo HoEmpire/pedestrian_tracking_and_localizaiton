@@ -4,25 +4,19 @@ namespace ptl
 {
     namespace tracker
     {
-        PointCloudProcessor::PointCloudProcessor(pcl::PointCloud<pcl::PointXYZI> pc_orig, PointCloudProcessorParam param)
+        PointCloudProcessor::PointCloudProcessor(const pcl::PointCloud<pcl::PointXYZI> &pc_orig, const PointCloudProcessorParam &param)
         {
             _param = param;
             _pc_origin = pc_orig;
-            pc_resample = pc_orig;
-            pc_conditional_filtered = pc_orig;
-            pc_statistical_filtered = pc_orig;
-            pc_final = pc_orig.makeShared();
+            pc_final = _pc_origin.makeShared();
         }
 
         void PointCloudProcessor::resample()
         {
             pcl::VoxelGrid<pcl::PointXYZI> resample_filter;
-            resample_filter.setInputCloud(_pc_origin.makeShared());
+            resample_filter.setInputCloud(pc_final);
             resample_filter.setLeafSize(_param.resample_size, _param.resample_size, _param.resample_size);
             resample_filter.filter(pc_resample);
-
-            pc_conditional_filtered = pc_resample;
-            pc_statistical_filtered = pc_resample;
             pc_final = pc_resample.makeShared();
         }
 
@@ -36,11 +30,9 @@ namespace ptl
             range_cond->addComparison(pcl::FieldComparison<pcl::PointXYZI>::ConstPtr(new pcl::FieldComparison<pcl::PointXYZI>("z", pcl::ComparisonOps::LT, _param.z_max)));
             pcl::ConditionalRemoval<pcl::PointXYZI> conditional_filter;
             conditional_filter.setCondition(range_cond);
-            conditional_filter.setInputCloud(pc_resample.makeShared());
+            conditional_filter.setInputCloud(pc_final);
             conditional_filter.setKeepOrganized(false);
             conditional_filter.filter(pc_conditional_filtered);
-
-            pc_statistical_filtered = pc_conditional_filtered;
             pc_final = pc_conditional_filtered.makeShared();
         }
 
@@ -50,7 +42,7 @@ namespace ptl
             statistical_filter.setStddevMulThresh(_param.std_dev_thres);
             statistical_filter.setMeanK(_param.mean_k);
             // statistical_filter.setKeepOrganized(true);
-            statistical_filter.setInputCloud(pc_conditional_filtered.makeShared());
+            statistical_filter.setInputCloud(pc_final);
             statistical_filter.filter(pc_statistical_filtered);
             pc_final = pc_statistical_filtered.makeShared();
         }
@@ -58,14 +50,15 @@ namespace ptl
         void PointCloudProcessor::clustering()
         {
             pcl::search::KdTree<pcl::PointXYZI>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZI>);
-            tree->setInputCloud(pc_statistical_filtered.makeShared());
+            tree->setInputCloud(pc_final);
+            std::cout << "pc_final: " << pc_final->size() << std::endl;
             std::vector<pcl::PointIndices> cluster_indices;
             pcl::EuclideanClusterExtraction<pcl::PointXYZI> euclidean_cluster;
             euclidean_cluster.setClusterTolerance(_param.cluster_tolerance);
             euclidean_cluster.setMinClusterSize(_param.cluster_size_min);
             euclidean_cluster.setMaxClusterSize(_param.cluster_size_max);
             euclidean_cluster.setSearchMethod(tree);
-            euclidean_cluster.setInputCloud(pc_statistical_filtered.makeShared());
+            euclidean_cluster.setInputCloud(pc_final);
             euclidean_cluster.extract(cluster_indices);
             for (auto it = cluster_indices.begin(); it != cluster_indices.end(); ++it)
             {

@@ -3,7 +3,7 @@ namespace ptl
 {
     namespace tracker
     {
-        KalmanFilter3d::KalmanFilter3d(KalmanFilter3dParam kf_param)
+        KalmanFilter3d::KalmanFilter3d(const KalmanFilter3dParam &kf_param)
         {
             _kf_param = kf_param;
             // Q = Eigen::Matrix4d::Identity() * kf_param.Q_factor;
@@ -14,14 +14,14 @@ namespace ptl
             H = Eigen::MatrixXd::Identity(3, 6);
         }
 
-        void KalmanFilter3d::init(geometry_msgs::Point x_init)
+        void KalmanFilter3d::init(const geometry_msgs::Point &x_init)
         {
             x = Eigen::VectorXd(6, 1);
             x << x_init.x, x_init.y, x_init.z, 0, 0, 0;
             is_init = true;
         }
 
-        void KalmanFilter3d::estimate(double dt)
+        void KalmanFilter3d::estimate(const double dt)
         {
             F.block<3, 3>(0, 3) = Eigen::Matrix3d::Identity() * dt;
             x = F * x;
@@ -41,7 +41,7 @@ namespace ptl
             //           << P << std::endl;
         }
 
-        void KalmanFilter3d::update(geometry_msgs::Point measurement)
+        void KalmanFilter3d::update(const geometry_msgs::Point &measurement)
         {
 
             Eigen::Vector3d z = get_measurement(measurement);
@@ -77,7 +77,7 @@ namespace ptl
             return p;
         }
 
-        Eigen::Vector3d KalmanFilter3d::get_measurement(geometry_msgs::Point measurement)
+        Eigen::Vector3d KalmanFilter3d::get_measurement(const geometry_msgs::Point &measurement)
         {
             Eigen::Vector3d z;
             z << measurement.x, measurement.y, measurement.z;

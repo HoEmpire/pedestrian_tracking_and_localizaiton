@@ -84,7 +84,7 @@ namespace ptl
             //match the previous one
             lock_guard<mutex> lk(mtx); //加锁pub
 
-            bool is_blur = blur_detection(cv_ptr->image);
+            // bool is_blur = blur_detection(cv_ptr->image);
 
             /*Data Association part: 
                 - two critertion:
@@ -146,11 +146,8 @@ namespace ptl
                                            cv_ptr->image, feature_ros_to_eigen(msg->features[i]), tracker_param, kf_param, kf3d_param, msg->img.header.stamp);
                     id++;
                     //update database
-                    if (!is_blur)
-                    {
-                        cv::Mat image_block = cv_ptr->image(new_object.bbox);
-                        update_local_database(&new_object, image_block);
-                    }
+                    cv::Mat image_block = cv_ptr->image(new_object.bbox);
+                    update_local_database(new_object, image_block);
                     local_objects_list.push_back(new_object);
                 }
                 else
@@ -166,12 +163,9 @@ namespace ptl
                     local_objects_list[matched_id].features.push_back(feature_ros_to_eigen(msg->features[i]));
 
                     //update database
-                    if (!is_blur)
-                    {
-                        // ROS_WARN("Update database in detector callback");
-                        cv::Mat image_block = cv_ptr->image(local_objects_list[matched_id].bbox & block_max);
-                        update_local_database(&local_objects_list[matched_id], image_block);
-                    }
+                    // ROS_WARN("Update database in detector callback");
+                    cv::Mat image_block = cv_ptr->image(local_objects_list[matched_id].bbox & block_max);
+                    update_local_database(local_objects_list[matched_id], image_block);
                 }
             }
 
@@ -192,11 +186,19 @@ namespace ptl
         void TrackerInterface::tracker_callback(const sensor_msgs::ImageConstPtr &msg)
         {
             ROS_INFO("******Into Tracker Callback******");
+            timer efficiency_clock;
             // ROS_ERROR("Into data callback");
             cv_bridge::CvImagePtr cv_ptr;
             cv::Mat image_detection_result;
             cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
-            bool is_blur = blur_detection(cv_ptr->image);
+            ROS_INFO_STREAM("Data preprocess:" << efficiency_clock.toc() << " s");
+            efficiency_clock.tic();
+
+            // bool is_blur = blur_detection(cv_ptr->image);
+
+            ROS_INFO_STREAM("Blur detection:" << efficiency_clock.toc() << " s");
+            efficiency_clock.tic();
+
             cv::Rect2d block_max(cv::Point2d(0, 0), cv::Point2d(cv_ptr->image.cols - 1, cv_ptr->image.rows - 1));
             lock_guard<mutex> lk(mtx); //加锁
 
@@ -206,12 +208,15 @@ namespace ptl
                 lo->update_tracker(cv_ptr->image, msg->header.stamp);
 
                 //update database
-                if (!is_blur && lo->is_track_succeed)
+                if (lo->is_track_succeed)
                 {
                     cv::Mat image_block = cv_ptr->image(lo->bbox & block_max);
                     update_local_database(lo, image_block);
                 }
             }
+
+            ROS_INFO_STREAM("update tracker:" << efficiency_clock.toc() << " s");
+            efficiency_clock.tic();
 
             //remove the tracker that loses track
             for (auto lo = local_objects_list.begin(); lo < local_objects_list.end();)
@@ -236,6 +241,9 @@ namespace ptl
                 }
             }
 
+            ROS_INFO_STREAM("remove dead tracker:" << efficiency_clock.toc() << " s");
+            efficiency_clock.tic();
+
             //for visualization
             Mat track_vis = cv_ptr->image.clone();
             for (auto lo : local_objects_list)
@@ -254,6 +262,9 @@ namespace ptl
             cv::putText(track_vis, reid_infos_text, cv::Point(50, 50), cv::FONT_HERSHEY_COMPLEX, 1.5, cv::Scalar(0, 0, 255), 3.0);
             m_track_vis_pub.publish(cv_bridge::CvImage(std_msgs::Header(), "bgr8", track_vis).toImageMsg());
 
+            ROS_INFO_STREAM("visualization:" << efficiency_clock.toc() << " s");
+            efficiency_clock.tic();
+
             //summary
             ROS_INFO("------Local Object List Summary------");
             ROS_INFO_STREAM("Local Object Num: " << local_objects_list.size());
@@ -263,6 +274,8 @@ namespace ptl
             }
             ROS_INFO("------Summary End------");
 
+            ROS_INFO_STREAM("report:" << efficiency_clock.toc() << " s");
+            efficiency_clock.tic();
             ROS_INFO("******Out of Data Callback******");
             std::cout << std::endl;
         }
@@ -290,7 +303,7 @@ namespace ptl
             pcp.compute(true, true, false, false, false);
             // ROS_INFO_STREAM("After resampled, point cloud size: " << pcp.pc_resample.size());
             ROS_INFO_STREAM("After preprocessed, point cloud size: " << pcp.pc_conditional_filtered.size());
-            match_between_2d_and_3d(pcp.pc_conditional_filtered, msg_pc->header.stamp);
+            match_between_2d_and_3d(pcp.pc_conditional_filtered.makeShared(), msg_pc->header.stamp);
             update_tracker_pos_marker_visualization();
             ROS_INFO_STREAM("In track_and_locate_callback: point cloud processing takes " << efficency_timer.toc());
         }
@@ -298,11 +311,19 @@ namespace ptl
         void TrackerInterface::tracker_callback_compressed(const sensor_msgs::CompressedImageConstPtr &msg)
         {
             ROS_INFO("******Into Tracker Callback******");
+            timer efficiency_clock;
             // ROS_ERROR("Into data callback");
             cv_bridge::CvImagePtr cv_ptr;
             cv::Mat image_detection_result;
             cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
-            bool is_blur = blur_detection(cv_ptr->image);
+            ROS_INFO_STREAM("Data preprocess:" << efficiency_clock.toc() << " s");
+            efficiency_clock.tic();
+
+            // bool is_blur = blur_detection(cv_ptr->image);
+
+            ROS_INFO_STREAM("Blur detection:" << efficiency_clock.toc() << " s");
+            efficiency_clock.tic();
+
             cv::Rect2d block_max(cv::Point2d(0, 0), cv::Point2d(cv_ptr->image.cols - 1, cv_ptr->image.rows - 1));
             lock_guard<mutex> lk(mtx); //加锁
 
@@ -312,12 +333,15 @@ namespace ptl
                 lo->update_tracker(cv_ptr->image, msg->header.stamp);
 
                 //update database
-                if (!is_blur && lo->is_track_succeed)
+                if (lo->is_track_succeed)
                 {
                     cv::Mat image_block = cv_ptr->image(lo->bbox & block_max);
                     update_local_database(lo, image_block);
                 }
             }
+
+            ROS_INFO_STREAM("update tracker:" << efficiency_clock.toc() << " s");
+            efficiency_clock.tic();
 
             //remove the tracker that loses track
             for (auto lo = local_objects_list.begin(); lo < local_objects_list.end();)
@@ -342,6 +366,9 @@ namespace ptl
                 }
             }
 
+            ROS_INFO_STREAM("remove dead tracker:" << efficiency_clock.toc() << " s");
+            efficiency_clock.tic();
+
             //for visualization
             Mat track_vis = cv_ptr->image.clone();
             for (auto lo : local_objects_list)
@@ -360,6 +387,9 @@ namespace ptl
             cv::putText(track_vis, reid_infos_text, cv::Point(50, 50), cv::FONT_HERSHEY_COMPLEX, 1.5, cv::Scalar(0, 0, 255), 3.0);
             m_track_vis_pub.publish(cv_bridge::CvImage(std_msgs::Header(), "bgr8", track_vis).toImageMsg());
 
+            ROS_INFO_STREAM("visualization:" << efficiency_clock.toc() << " s");
+            efficiency_clock.tic();
+
             //summary
             ROS_INFO("------Local Object List Summary------");
             ROS_INFO_STREAM("Local Object Num: " << local_objects_list.size());
@@ -369,6 +399,8 @@ namespace ptl
             }
             ROS_INFO("------Summary End------");
 
+            ROS_INFO_STREAM("report:" << efficiency_clock.toc() << " s");
+            efficiency_clock.tic();
             ROS_INFO("******Out of Data Callback******");
             std::cout << std::endl;
         }
@@ -396,7 +428,7 @@ namespace ptl
             pcp.compute(true, true, false, false, false);
             // ROS_INFO_STREAM("After resampled, point cloud size: " << pcp.pc_resample.size());
             ROS_INFO_STREAM("After preprocessed, point cloud size: " << pcp.pc_conditional_filtered.size());
-            match_between_2d_and_3d(pcp.pc_conditional_filtered, msg_pc->header.stamp);
+            match_between_2d_and_3d(pcp.pc_conditional_filtered.makeShared(), msg_pc->header.stamp);
             update_tracker_pos_marker_visualization();
             ROS_INFO_STREAM("In track_and_locate_callback: point cloud processing takes " << efficency_timer.toc());
         }
@@ -488,7 +520,22 @@ namespace ptl
             return sigma.val[0] * sigma.val[0] < blur_detection_threshold;
         }
 
-        bool TrackerInterface::update_local_database(LocalObject *local_object, const cv::Mat img_block)
+        bool TrackerInterface::update_local_database(LocalObject &local_object, const cv::Mat &img_block)
+        {
+            if (1.0 * img_block.rows / img_block.cols > height_width_ratio_min && 1.0 * img_block.rows / img_block.cols < height_width_ratio_max && local_object.time.toc() > record_interval)
+            {
+                local_object.img_blocks.push_back(img_block);
+                local_object.time.tic();
+                ROS_INFO_STREAM("Adding an image to the datebase id: " << local_object.id);
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        bool TrackerInterface::update_local_database(std::vector<LocalObject>::iterator local_object, const cv::Mat &img_block)
         {
             if (1.0 * img_block.rows / img_block.cols > height_width_ratio_min && 1.0 * img_block.rows / img_block.cols < height_width_ratio_max && local_object->time.toc() > record_interval)
             {
@@ -503,22 +550,7 @@ namespace ptl
             }
         }
 
-        bool TrackerInterface::update_local_database(std::vector<LocalObject>::iterator local_object, const cv::Mat img_block)
-        {
-            if (1.0 * img_block.rows / img_block.cols > height_width_ratio_min && 1.0 * img_block.rows / img_block.cols < height_width_ratio_max && local_object->time.toc() > record_interval)
-            {
-                local_object->img_blocks.push_back(img_block);
-                local_object->time.tic();
-                ROS_INFO_STREAM("Adding an image to the datebase id: " << local_object->id);
-                return true;
-            }
-            else
-            {
-                return false;
-            }
-        }
-
-        void TrackerInterface::match_between_2d_and_3d(pcl::PointCloud<pcl::PointXYZI> pc, ros::Time ros_pc_time)
+        void TrackerInterface::match_between_2d_and_3d(const pcl::PointCloud<pcl::PointXYZI>::Ptr pc, const ros::Time &ros_pc_time)
         {
             pcl::PointCloud<pcl::PointXYZI> pc_filtered;
             for (auto &lo : local_objects_list)
@@ -578,7 +610,7 @@ namespace ptl
             }
         }
 
-        pcl::PointCloud<pcl::PointXYZI> TrackerInterface::point_cloud_segementation(pcl::PointCloud<pcl::PointXYZI> pc, cv::Rect2d bbox)
+        pcl::PointCloud<pcl::PointXYZI> TrackerInterface::point_cloud_segementation(const pcl::PointCloud<pcl::PointXYZI>::Ptr pc, const cv::Rect2d &bbox)
         {
             pcl::PointCloud<pcl::PointXYZI> pc_new, pc_camera_frame;
             Eigen::Quaterniond q(lidar2camera.transform.rotation.w, lidar2camera.transform.rotation.x,
@@ -590,7 +622,7 @@ namespace ptl
             T(2, 3) = lidar2camera.transform.translation.z;
             // std::cout << T << std::endl;
 
-            pcl::transformPointCloud(pc, pc_camera_frame, T);
+            pcl::transformPointCloud(*pc, pc_camera_frame, T);
             for (auto p : pc_camera_frame)
             {
                 int u = int(-p.y / p.x * camera_intrinsic.fx + camera_intrinsic.cx);

@@ -20,7 +20,7 @@ class AssociationVector
 public:
     AssociationVector() = default;
 
-    void add_new_ass(AssociationType ass_object)
+    void add_new_ass(const AssociationType &ass_object)
     {
         if (ass_vector.empty())
             ass_vector.push_back(ass_object);
@@ -60,7 +60,7 @@ public:
     std::vector<AssociationType> ass_vector;
 };
 
-void uniquify_detector_association_vectors_once(std::vector<AssociationVector> &detector_association_vectors, std::vector<AssociationVector> &tracker_association_vectors, int detector_index)
+void uniquify_detector_association_vectors_once(std::vector<AssociationVector> &detector_association_vectors, std::vector<AssociationVector> &tracker_association_vectors, const int detector_index)
 {
     int tracker_index;
     if (detector_association_vectors[detector_index].ass_vector.empty())
@@ -93,7 +93,7 @@ void uniquify_detector_association_vectors_once(std::vector<AssociationVector> &
     }
 }
 
-void uniquify_detector_association_vectors(std::vector<AssociationVector> &detector_association_vectors, int local_track_list_num)
+void uniquify_detector_association_vectors(std::vector<AssociationVector> &detector_association_vectors, const int local_track_list_num)
 {
     std::vector<AssociationVector> tracker_association_vectors(local_track_list_num, AssociationVector());
 

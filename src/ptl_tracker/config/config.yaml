@@ -2,10 +2,10 @@ basic:
   use_compressed_image: true
   use_lidar: true
   enable_pcp_vis: true
-  lidar_topic: /hesai/pandar
-  camera_topic: /camera/color/image_raw/compressed
+  lidar_topic: /rslidar_points
+  camera_topic: /camera2/color/image_raw/compressed
   map_frame: map
-  lidar_frame: PandarQT
+  lidar_frame: rslidar
   camera_frame: camera2_link
 
 tracker:

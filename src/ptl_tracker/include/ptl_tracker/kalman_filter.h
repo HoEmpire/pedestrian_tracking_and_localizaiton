@@ -16,20 +16,20 @@ namespace ptl
         class KalmanFilter
         {
         public:
-            KalmanFilter(KalmanFilterParam kf_param);
-            void init(cv::Rect2d bbox);
-            void update_bbox(cv::Rect2d bbox);
-            cv::Rect2d estimate(double time);
-            cv::Rect2d update(cv::Rect2d measurement);
+            KalmanFilter(const KalmanFilterParam &kf_param);
+            void init(const cv::Rect2d &bbox);
+            void update_bbox(const cv::Rect2d &bbox);
+            cv::Rect2d estimate(const double time);
+            cv::Rect2d update(const cv::Rect2d &measurement);
 
             // ensure the bbox height and width is the latest one
             // especially in estimate step of tracker
             Eigen::Vector4d x;
 
         private:
-            inline Eigen::Vector4d bbox_to_state(cv::Rect2d bbox);
-            inline Eigen::Vector2d bbox_to_measurement(cv::Rect2d bbox);
-            inline cv::Rect2d point_to_bbox(Eigen::Vector4d point);
+            inline Eigen::Vector4d bbox_to_state(const cv::Rect2d &bbox);
+            inline Eigen::Vector2d bbox_to_measurement(const cv::Rect2d &bbox);
+            inline cv::Rect2d point_to_bbox(const Eigen::Vector4d &point);
 
             Eigen::Matrix4d Q, P, F;
             Eigen::Matrix2d R;

@@ -53,15 +53,15 @@ namespace ptl
 
             void reid_callback(const ptl_msgs::ReidInfo &msg);
             void load_config(ros::NodeHandle *n);
-            bool update_local_database(LocalObject *local_object, const cv::Mat img_block);
-            bool update_local_database(std::vector<LocalObject>::iterator local_object, const cv::Mat img_block);
-            void match_between_2d_and_3d(pcl::PointCloud<pcl::PointXYZI> pc, ros::Time ros_pc_time);
+            bool update_local_database(LocalObject &local_object, const cv::Mat &img_block);
+            bool update_local_database(std::vector<LocalObject>::iterator local_object, const cv::Mat &img_block);
+            void match_between_2d_and_3d(const pcl::PointCloud<pcl::PointXYZI>::Ptr pc, const ros::Time &ros_pc_time);
             void get_tf();
             void update_tracker_pos_marker_visualization();
             void update_overlap_flag();
 
             //do segementation by reprojection
-            pcl::PointCloud<pcl::PointXYZI> point_cloud_segementation(pcl::PointCloud<pcl::PointXYZI> pc, cv::Rect2d bbox);
+            pcl::PointCloud<pcl::PointXYZI> point_cloud_segementation(const pcl::PointCloud<pcl::PointXYZI>::Ptr pc, const cv::Rect2d &bbox);
 
         public:
             std::vector<LocalObject> local_objects_list;
