@@ -70,7 +70,7 @@ class ReIDNode():
         self.reid_vis_pub = rospy.Publisher('/ptl_reid/reid_result',
                                             Image,
                                             queue_size=1)
-        self.position_vis_pub = rospy.Publisher('/ptl_reid/position_vis',
+        self.position_vis_pub = rospy.Publisher('/ptl_reid/marker_history',
                                                 MarkerArray,
                                                 queue_size=1)
         self.detector_reid_to_tracker_pub = rospy.Publisher(

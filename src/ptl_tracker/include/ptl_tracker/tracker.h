@@ -27,7 +27,7 @@
 //opentracker
 #include "opentracker/kcf/kcftracker.hpp"
 
-#include "ptl_tracker/local_object.h"
+#include "ptl_tracker/optical_flow.h"
 #include "ptl_tracker/association_type.hpp"
 #include "ptl_tracker/point_cloud_processor.h"
 #include "ptl_msgs/ImageBlock.h"
@@ -48,8 +48,11 @@ namespace ptl
             void tracker_callback(const sensor_msgs::ImageConstPtr &msg);
             void track_and_locate_callback(const sensor_msgs::ImageConstPtr &msg_img, const sensor_msgs::PointCloud2ConstPtr &msg_pc);
 
-            void tracker_callback_compressed(const sensor_msgs::CompressedImageConstPtr &msg);
-            void track_and_locate_callback_compressed(const sensor_msgs::CompressedImageConstPtr &msg_img, const sensor_msgs::PointCloud2ConstPtr &msg_pc);
+            void tracker_callback_compressed_img(const sensor_msgs::CompressedImageConstPtr &msg);
+            void track_and_locate_callback_compressed_img(const sensor_msgs::CompressedImageConstPtr &msg_img, const sensor_msgs::PointCloud2ConstPtr &msg_pc);
+
+            void update_bbox_by_tracker(cv::Mat &img, const ros::Time &update_time);
+            void update_3d_pos(const pcl::PointCloud<pcl::PointXYZI>::Ptr pc);
 
             void reid_callback(const ptl_msgs::ReidInfo &msg);
             void load_config(ros::NodeHandle *n);
@@ -90,6 +93,8 @@ namespace ptl
 
             geometry_msgs::TransformStamped lidar2camera, lidar2map, camera2map;
 
+            OpticalFlow opt_tracker;
+
             //param
             std::string lidar_topic, camera_topic;
             std::string map_frame, lidar_frame, camera_frame;
@@ -110,13 +115,15 @@ namespace ptl
             float reid_match_threshold = 200;
             double reid_match_bbox_dis = 30;
             double reid_match_bbox_size_diff = 30;
-
             int match_centroid_padding = 20;
+
+            //params
             TrackerParam tracker_param;
             PointCloudProcessorParam pcp_param;
-            CameraIntrinsic camera_intrinsic;
+            OpticalFlowParam opt_param;
             KalmanFilterParam kf_param;
             KalmanFilter3dParam kf3d_param;
+            CameraIntrinsic camera_intrinsic;
         };
     } // namespace tracker
 

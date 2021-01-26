@@ -19,14 +19,14 @@ namespace ptl
             id = 0;
             nh_ = n;
             load_config(nh_);
+            opt_tracker = OpticalFlowParam(opt_param);
             tf_listener = new tf2_ros::TransformListener(tf_buffer);
 
             //publisher
             m_track_vis_pub = n->advertise<sensor_msgs::Image>("tracker_results", 1);
             m_track_to_reid_pub = n->advertise<ptl_msgs::DeadTracker>("tracker_to_reid", 1);
-            m_track_marker_pub = n->advertise<visualization_msgs::Marker>("marker_vis", 1);
-            m_pc_filtered_debug = n->advertise<sensor_msgs::PointCloud2>("pc_filtered", 1);
-            // m_pc_cluster_debug = n->advertise<visualization_msgs::Marker>("pc_cluster", 1);
+            m_track_marker_pub = n->advertise<visualization_msgs::Marker>("marker_tracking", 1);
+            m_pc_filtered_debug = n->advertise<sensor_msgs::PointCloud2>("point_cloud_tracking", 1);
 
             //subscirbe
             m_detector_sub = n->subscribe("/ptl_reid/detector_to_reid_to_tracker", 1, &TrackerInterface::detector_result_callback, this);
@@ -52,7 +52,7 @@ namespace ptl
             {
                 if (use_compressed_image)
                 {
-                    m_data_sub = n->subscribe(camera_topic, 1, &TrackerInterface::tracker_callback_compressed, this);
+                    m_data_sub = n->subscribe(camera_topic, 1, &TrackerInterface::tracker_callback_compressed_img, this);
                 }
                 else
                 {
@@ -64,14 +64,6 @@ namespace ptl
         void TrackerInterface::detector_result_callback(const ptl_msgs::ImageBlockPtr &msg)
         {
             ROS_INFO_STREAM("******Into Detector Callback******");
-            ros::Duration time = ros::Time::now() - msg->header.stamp;
-            ROS_INFO_STREAM("Time: detector->reid->tracekr end:" << time.toSec() * 1000 << "ms");
-            ROS_INFO_STREAM("Time: detector->reid->tracekr start:" << time.sec);
-            ROS_INFO_STREAM("Time: detector->reid->tracekr start:" << time.nsec);
-            ROS_INFO_STREAM("Time: now:" << ros::Time::now().sec);
-            ROS_INFO_STREAM("Time: now:" << ros::Time::now().nsec);
-            ROS_INFO_STREAM("Time: image:" << msg->header.stamp.sec);
-            ROS_INFO_STREAM("Time: image:" << msg->header.stamp.nsec);
             if (msg->ids.empty())
                 return;
             cv_bridge::CvImagePtr cv_ptr;
@@ -183,35 +175,29 @@ namespace ptl
             std::cout << std::endl;
         }
 
-        void TrackerInterface::tracker_callback(const sensor_msgs::ImageConstPtr &msg)
+        void TrackerInterface::update_bbox_by_tracker(cv::Mat &img, const ros::Time &update_time)
         {
-            ROS_INFO("******Into Tracker Callback******");
-            timer efficiency_clock;
-            // ROS_ERROR("Into data callback");
-            cv_bridge::CvImagePtr cv_ptr;
             cv::Mat image_detection_result;
-            cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
-            ROS_INFO_STREAM("Data preprocess:" << efficiency_clock.toc() << " s");
-            efficiency_clock.tic();
+            timer efficiency_clock;
 
-            // bool is_blur = blur_detection(cv_ptr->image);
-
-            ROS_INFO_STREAM("Blur detection:" << efficiency_clock.toc() << " s");
-            efficiency_clock.tic();
-
-            cv::Rect2d block_max(cv::Point2d(0, 0), cv::Point2d(cv_ptr->image.cols - 1, cv_ptr->image.rows - 1));
+            cv::Rect2d block_max(cv::Point2d(0, 0), cv::Point2d(img.cols - 1, img.rows - 1));
             lock_guard<mutex> lk(mtx); //加锁
 
-            //update the tracker and update the local database
+            // get the bbox measurement by optical flow
+            if (!local_objects_list.empty())
+            {
+                opt_tracker.update(img, local_objects_list);
+            }
+
+            // update each tracking object in tracking list by kalman filter
             for (auto lo = local_objects_list.begin(); lo < local_objects_list.end(); lo++)
             {
-                lo->update_tracker(cv_ptr->image, msg->header.stamp);
+                lo->track_bbox_by_optical_flow(update_time);
 
                 //update database
                 if (lo->is_track_succeed)
                 {
-                    cv::Mat image_block = cv_ptr->image(lo->bbox & block_max);
-                    update_local_database(lo, image_block);
+                    update_local_database(lo, img(lo->bbox & block_max));
                 }
             }
 
@@ -221,13 +207,16 @@ namespace ptl
             //remove the tracker that loses track
             for (auto lo = local_objects_list.begin(); lo < local_objects_list.end();)
             {
+                // two criterion to determine whether tracking failure occurs:
+                // 1. too long from the last update by detector
+                // 2. continuous tracking failure in optical flow tracking
                 if (lo->tracking_fail_count >= track_fail_timeout_tick || lo->detector_update_count >= detector_update_timeout_tick)
                 {
-                    ptl_msgs::DeadTracker msg_pub;
+                    ptl_msgs::DeadTracker msg_pub; // publish the dead tracker to reid
+                    //TODO add n*2048 feature to DeadTraker
                     for (auto ib : lo->img_blocks)
                     {
-                        sensor_msgs::ImagePtr img_tmp = cv_bridge::CvImage(std_msgs::Header(), "bgr8", ib).toImageMsg();
-                        msg_pub.img_blocks.push_back(*img_tmp);
+                        msg_pub.img_blocks.push_back(*cv_bridge::CvImage(std_msgs::Header(), "bgr8", ib).toImageMsg());
                     }
                     msg_pub.position = lo->position;
                     if (msg_pub.img_blocks.size() > batch_num_min)
@@ -240,21 +229,14 @@ namespace ptl
                     lo++;
                 }
             }
-
             ROS_INFO_STREAM("remove dead tracker:" << efficiency_clock.toc() << " s");
             efficiency_clock.tic();
 
             //for visualization
-            Mat track_vis = cv_ptr->image.clone();
+            Mat track_vis = img.clone();
             for (auto lo : local_objects_list)
             {
-                // if (lo.is_track_succeed)
-                // {
-                // std::string text;
-                // text = "id: " + std::to_string(lo.id);
-                cv::rectangle(track_vis, lo.bbox, lo.color, 4.0);
-                // cv::putText(track_vis, text, cv::Point(lo.bbox.x, lo.bbox.y), cv::FONT_HERSHEY_COMPLEX, 1.5, lo.color, 4.0);
-                // }
+                cv::rectangle(track_vis, lo.bbox, lo.color, 4.0); //TODO add local id in here
             }
             std::string reid_infos_text;
             reid_infos_text = "Total: " + std::to_string(reid_infos.total_num) +
@@ -263,9 +245,9 @@ namespace ptl
             m_track_vis_pub.publish(cv_bridge::CvImage(std_msgs::Header(), "bgr8", track_vis).toImageMsg());
 
             ROS_INFO_STREAM("visualization:" << efficiency_clock.toc() << " s");
-            efficiency_clock.tic();
 
             //summary
+            efficiency_clock.tic();
             ROS_INFO("------Local Object List Summary------");
             ROS_INFO_STREAM("Local Object Num: " << local_objects_list.size());
             for (auto lo : local_objects_list)
@@ -275,8 +257,15 @@ namespace ptl
             ROS_INFO("------Summary End------");
 
             ROS_INFO_STREAM("report:" << efficiency_clock.toc() << " s");
-            efficiency_clock.tic();
-            ROS_INFO("******Out of Data Callback******");
+        }
+
+        void TrackerInterface::tracker_callback(const sensor_msgs::ImageConstPtr &msg)
+        {
+            ROS_INFO("******Into Tracker Callback******");
+            cv_bridge::CvImagePtr cv_ptr;
+            cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
+            update_bbox_by_tracker(cv_ptr->image, cv_ptr->header.stamp);
+            ROS_INFO("******Out of Tracker Callback******");
             std::cout << std::endl;
         }
 
@@ -308,99 +297,13 @@ namespace ptl
             ROS_INFO_STREAM("In track_and_locate_callback: point cloud processing takes " << efficency_timer.toc());
         }
 
-        void TrackerInterface::tracker_callback_compressed(const sensor_msgs::CompressedImageConstPtr &msg)
+        void TrackerInterface::tracker_callback_compressed_img(const sensor_msgs::CompressedImageConstPtr &msg)
         {
             ROS_INFO("******Into Tracker Callback******");
-            timer efficiency_clock;
-            // ROS_ERROR("Into data callback");
             cv_bridge::CvImagePtr cv_ptr;
-            cv::Mat image_detection_result;
             cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
-            ROS_INFO_STREAM("Data preprocess:" << efficiency_clock.toc() << " s");
-            efficiency_clock.tic();
-
-            // bool is_blur = blur_detection(cv_ptr->image);
-
-            ROS_INFO_STREAM("Blur detection:" << efficiency_clock.toc() << " s");
-            efficiency_clock.tic();
-
-            cv::Rect2d block_max(cv::Point2d(0, 0), cv::Point2d(cv_ptr->image.cols - 1, cv_ptr->image.rows - 1));
-            lock_guard<mutex> lk(mtx); //加锁
-
-            //update the tracker and update the local database
-            for (auto lo = local_objects_list.begin(); lo < local_objects_list.end(); lo++)
-            {
-                lo->update_tracker(cv_ptr->image, msg->header.stamp);
-
-                //update database
-                if (lo->is_track_succeed)
-                {
-                    update_local_database(lo, cv_ptr->image(lo->bbox & block_max));
-                }
-            }
-
-            ROS_INFO_STREAM("update tracker:" << efficiency_clock.toc() << " s");
-            efficiency_clock.tic();
-
-            //remove the tracker that loses track
-            for (auto lo = local_objects_list.begin(); lo < local_objects_list.end();)
-            {
-                if (lo->tracking_fail_count >= track_fail_timeout_tick || lo->detector_update_count >= detector_update_timeout_tick)
-                {
-                    ptl_msgs::DeadTracker msg_pub;
-                    for (auto ib : lo->img_blocks)
-                    {
-                        sensor_msgs::ImagePtr img_tmp = cv_bridge::CvImage(std_msgs::Header(), "bgr8", ib).toImageMsg();
-                        msg_pub.img_blocks.push_back(*img_tmp);
-                    }
-                    msg_pub.position = lo->position;
-                    if (msg_pub.img_blocks.size() > batch_num_min)
-                        m_track_to_reid_pub.publish(msg_pub);
-                    lo = local_objects_list.erase(lo);
-                    continue;
-                }
-                else
-                {
-                    lo++;
-                }
-            }
-
-            ROS_INFO_STREAM("remove dead tracker:" << efficiency_clock.toc() << " s");
-            efficiency_clock.tic();
-
-            //for visualization
-            Mat track_vis = cv_ptr->image.clone();
-            for (auto lo : local_objects_list)
-            {
-                // if (lo.is_track_succeed)
-                // {
-                // std::string text;
-                // text = "id: " + std::to_string(lo.id);
-                cv::rectangle(track_vis, lo.bbox, lo.color, 4.0);
-                // cv::putText(track_vis, text, cv::Point(lo.bbox.x, lo.bbox.y), cv::FONT_HERSHEY_COMPLEX, 1.5, lo.color, 4.0);
-                // }
-            }
-            std::string reid_infos_text;
-            reid_infos_text = "Total: " + std::to_string(reid_infos.total_num) +
-                              "  Last Id: " + std::to_string(reid_infos.last_query_id);
-            cv::putText(track_vis, reid_infos_text, cv::Point(50, 50), cv::FONT_HERSHEY_COMPLEX, 1.5, cv::Scalar(0, 0, 255), 3.0);
-            m_track_vis_pub.publish(cv_bridge::CvImage(std_msgs::Header(), "bgr8", track_vis).toImageMsg());
-
-            ROS_INFO_STREAM("visualization:" << efficiency_clock.toc() << " s");
-            efficiency_clock.tic();
-
-            //summary
-            ROS_INFO("------Local Object List Summary------");
-            ROS_INFO_STREAM("Local Object Num: " << local_objects_list.size());
-            for (auto lo : local_objects_list)
-            {
-                ROS_INFO_STREAM("id: " << lo.id << "| database images num: " << lo.img_blocks.size());
-            }
-            ROS_INFO("------Summary End------");
-
-            ROS_INFO_STREAM("report:" << efficiency_clock.toc() << " s");
-            efficiency_clock.tic();
-            ROS_INFO("******Out of Data Callback******");
+            update_bbox_by_tracker(cv_ptr->image, cv_ptr->header.stamp);
+            ROS_INFO("******Out of Tracker Callback******");
             std::cout << std::endl;
         }
 

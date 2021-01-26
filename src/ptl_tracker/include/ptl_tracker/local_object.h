@@ -22,14 +22,21 @@ namespace ptl
             LocalObject(const int id_init, const cv::Rect2d &bbox_init, const cv::Mat &frame,
                         const Eigen::VectorXf &feat, const TrackerParam &track_param_init, const KalmanFilterParam &kf_param_init,
                         const KalmanFilter3dParam &kf3d_param_init, const ros::Time &time_now);
-            void update_tracker(const cv::Mat &frame, const ros::Time &update_time);
+
+            //update bbox by optical flow
+            void track_bbox_by_optical_flow(const ros::Time &time_now);
+
+            //update bbox by detector
+            //general before track by detector, we will perform track by optical flow first
+            void track_bbox_by_detector(const cv::Rect2d &bbox_detector, const ros::Time &update_time);
+
             void update_3d_tracker(const geometry_msgs::Point &measurement, const ros::Time &time_now);
             void update_3d_tracker(const ros::Time &time_now);
-            void reinit(const cv::Rect2d &bbox_init, const cv::Mat &frame, const ros::Time update_time);
+
             float find_min_query_score(const Eigen::VectorXf &query);
 
             int id;
-            cv::Rect2d bbox;
+            cv::Rect2d bbox, bbox_optical_flow;
             int tracking_fail_count;
             int detector_update_count;
             int overlap_count;
@@ -37,22 +44,18 @@ namespace ptl
             bool is_track_succeed;
             std::vector<cv::Mat> img_blocks;
             std::vector<Eigen::VectorXf> features;
-            timer time;
             geometry_msgs::Point position;
-            ros::Time ros_time_image_last;
+            ros::Time bbox_last_update_time;
             ros::Time ros_time_pc_last;
             bool is_overlap = false;
 
+            std::vector<cv::Point2f> keykoints_pre, keypoints_curr;
+            cv::Rect2d bbox_measurement;
+
         private:
-            bool HOG = true;
-            bool FIXEDWINDOW = true;
-            bool MULTISCALE = true;
-            bool LAB = true;
-            bool DSST = false;
             TrackerParam tracker_param;
             KalmanFilter *kf;
             KalmanFilter3d *kf_3d;
-            kcf::KCFTracker *dssttracker;
         };
     } // namespace tracker
 

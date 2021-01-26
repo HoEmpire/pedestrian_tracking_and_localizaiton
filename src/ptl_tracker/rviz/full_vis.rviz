@@ -27,6 +27,7 @@ Panels:
         - /Status1
         - /Grid1
         - /MarkerArray1
+        - /Marker1
         - /PointCloud21
         - /PointCloud22
         - /PointCloud22/Status1
@@ -96,7 +97,7 @@ Visualization Manager:
       Value: true
     - Class: rviz/MarkerArray
       Enabled: true
-      Marker Topic: /ptl_reid/position_vis
+      Marker Topic: /ptl_reid/marker_history
       Name: MarkerArray
       Namespaces:
         {}
@@ -104,7 +105,7 @@ Visualization Manager:
       Value: true
     - Class: rviz/Marker
       Enabled: true
-      Marker Topic: /ptl_tracker/marker_vis
+      Marker Topic: /ptl_tracker/marker_tracking
       Name: Marker
       Namespaces:
         tracking_objects_position: true
@@ -165,7 +166,7 @@ Visualization Manager:
       Size (Pixels): 3
       Size (m): 0.05000000074505806
       Style: Flat Squares
-      Topic: /ptl_tracker/pc_filtered
+      Topic: /ptl_tracker/point_cloud_tracking
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: true

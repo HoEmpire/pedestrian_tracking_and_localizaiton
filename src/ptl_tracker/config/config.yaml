@@ -50,10 +50,10 @@ pc_processor:
   match_centroid_padding: 20
 
 camera_intrinsic:
-  fx: 616.718
-  fy: 616.703
-  cx: 431.721
-  cy: 244.603
+  fx: 613.783
+  fy: 612.895
+  cx: 416.969
+  cy: 240.223
 
 kalman_filter:
   q_factor: 100

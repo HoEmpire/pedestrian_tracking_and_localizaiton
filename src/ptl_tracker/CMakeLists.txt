@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.5)
 
 project(ptl_tracker)
 
-set(CMAKE_BUILD_TYPE "Debug")
+set(CMAKE_BUILD_TYPE "Release")
 set(CMAKE_CXX_FLAGS "-std=c++11 ${CMAKE_CXX_FLAGS} -O3")
 
 find_package(catkin 
@@ -40,9 +40,12 @@ target_link_libraries(tracker_lib ${OpenTracker_LIBS} ${OpenCV_LIBS} ${catkin_LI
 
 add_library(pcp_lib src/point_cloud_processor.cpp)
 
-add_executable(tracker src/main.cpp) 
-target_link_libraries(tracker tracker_lib pcp_lib)
-add_dependencies(tracker ptl_msgs_generate_messages_cpp)
+# add_executable(tracker src/main.cpp) 
+# target_link_libraries(tracker tracker_lib pcp_lib)
+# add_dependencies(tracker ptl_msgs_generate_messages_cpp)
 
-add_executable(tf_publisher src/tf_publisher.cpp) 
-target_link_libraries(tf_publisher ${catkin_LIBRARIES})
+# add_executable(tf_publisher src/tf_publisher.cpp) 
+# target_link_libraries(tf_publisher ${catkin_LIBRARIES})
+
+add_executable(pc_test src/pc_experienment.cpp) 
+target_link_libraries(pc_test ${catkin_LIBRARIES})
