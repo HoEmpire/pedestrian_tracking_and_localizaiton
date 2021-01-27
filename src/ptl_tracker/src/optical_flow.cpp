@@ -3,10 +3,6 @@ namespace ptl
 {
     namespace tracker
     {
-        OpticalFlow::OpticalFlow(const OpticalFlowParam &optical_flow_param)
-        {
-            optical_flow_param_ = optical_flow_param;
-        }
 
         void OpticalFlow::update(const cv::Mat &frame_curr, std::vector<LocalObject> &local_objects)
         {

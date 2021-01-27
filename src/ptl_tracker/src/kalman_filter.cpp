@@ -82,5 +82,11 @@ namespace ptl
             //           << x << std::endl;
             return point_to_bbox(x);
         }
+
+        cv::Rect2d KalmanFilter::predict_only(const double dt)
+        {
+            F.block<2, 2>(0, 2) = Eigen::Matrix2d::Identity() * dt;
+            return point_to_bbox(F * x);
+        }
     } // namespace tracker
 } // namespace ptl

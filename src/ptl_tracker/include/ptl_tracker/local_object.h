@@ -49,6 +49,9 @@ namespace ptl
             ros::Time ros_time_pc_last;
             bool is_overlap = false;
 
+            //control the time interval between adding two image blocks into this local object database
+            timer database_update_timer;
+
             std::vector<cv::Point2f> keykoints_pre, keypoints_curr;
             cv::Rect2d bbox_measurement;
 

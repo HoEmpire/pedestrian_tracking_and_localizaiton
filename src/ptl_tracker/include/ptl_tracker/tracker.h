@@ -45,51 +45,52 @@ namespace ptl
         private:
             void detector_result_callback(const ptl_msgs::ImageBlockPtr &msg);
 
-            void tracker_callback(const sensor_msgs::ImageConstPtr &msg);
-            void track_and_locate_callback(const sensor_msgs::ImageConstPtr &msg_img, const sensor_msgs::PointCloud2ConstPtr &msg_pc);
+            void image_tracker_callback(const sensor_msgs::ImageConstPtr &msg);
+            void image_tracker_callback_compressed_img(const sensor_msgs::CompressedImageConstPtr &msg);
 
-            void tracker_callback_compressed_img(const sensor_msgs::CompressedImageConstPtr &msg);
-            void track_and_locate_callback_compressed_img(const sensor_msgs::CompressedImageConstPtr &msg_img, const sensor_msgs::PointCloud2ConstPtr &msg_pc);
+            void lidar_tracker_callback(const sensor_msgs::PointCloud2ConstPtr &msg_pc);
 
             void update_bbox_by_tracker(cv::Mat &img, const ros::Time &update_time);
-            void update_3d_pos(const pcl::PointCloud<pcl::PointXYZI>::Ptr pc);
 
             void reid_callback(const ptl_msgs::ReidInfo &msg);
             void load_config(ros::NodeHandle *n);
+
             bool update_local_database(LocalObject &local_object, const cv::Mat &img_block);
-            bool update_local_database(std::vector<LocalObject>::iterator local_object, const cv::Mat &img_block);
+
             void match_between_2d_and_3d(const pcl::PointCloud<pcl::PointXYZI>::Ptr pc, const ros::Time &ros_pc_time);
             void get_tf();
             void update_tracker_pos_marker_visualization();
             void update_overlap_flag();
 
+            //bbox update by optical flow tracker
+            void track_bbox_and_update_database(const cv::Mat &img, const ros::Time &update_time);
+            void remove_dead_trackers();
+            void report_local_object();
+            void visualize_tracking(const cv::Mat &img);
+
             //do segementation by reprojection
             pcl::PointCloud<pcl::PointXYZI> point_cloud_segementation(const pcl::PointCloud<pcl::PointXYZI>::Ptr pc, const cv::Rect2d &bbox);
+
+            //associate the detected results with local tracking objects, make sure one detected object matches only 0 or 1 tracking object
+            void detector_and_tracker_association(const std::vector<cv::Rect2d> &bboxes, const cv::Rect2d &block_max,
+                                                  vector<AssociationVector> &detector_bbox_ass_vec);
+            void manage_local_objects_list_by_detector_result(const ptl_msgs::ImageBlockPtr &msg, vector<AssociationVector> &all_detected_bbox_ass_vec);
+
+            std::vector<cv::Rect2d> bbox_ros_to_opencv(const std::vector<std_msgs::UInt16MultiArray> &bbox_ros);
 
         public:
             std::vector<LocalObject> local_objects_list;
 
         private:
-            bool blur_detection(cv::Mat img);
-
-            int id;
+            int local_id_not_assigned = 0;
             ros::NodeHandle *nh_;
             ros::Publisher m_track_vis_pub, m_track_to_reid_pub, m_track_marker_pub;
             ros::Publisher m_pc_filtered_debug, m_pc_cluster_debug;
-            ros::Subscriber m_detector_sub, m_data_sub, m_reid_sub;
+            ros::Subscriber m_detector_sub, m_image_sub, m_reid_sub, m_lidar_sub;
             std::mutex mtx;
             struct ReidInfo reid_infos;
             tf2_ros::Buffer tf_buffer;
             tf2_ros::TransformListener *tf_listener;
-            message_filters::Subscriber<sensor_msgs::CompressedImage> m_compressed_image_sub;
-            message_filters::Subscriber<sensor_msgs::Image> m_image_sub;
-            message_filters::Subscriber<sensor_msgs::PointCloud2> m_lidar_sub;
-
-            typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sensor_msgs::PointCloud2> MySyncPolicy;
-            message_filters::Synchronizer<MySyncPolicy> *sync;
-
-            typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::CompressedImage, sensor_msgs::PointCloud2> MySyncPolicyCompressed;
-            message_filters::Synchronizer<MySyncPolicyCompressed> *sync_compressed;
 
             geometry_msgs::TransformStamped lidar2camera, lidar2map, camera2map;
 

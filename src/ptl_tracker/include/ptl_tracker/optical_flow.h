@@ -28,7 +28,8 @@ namespace ptl
         class OpticalFlow
         {
         public:
-            OpticalFlow(const OpticalFlowParam &optical_flow_param);
+            OpticalFlow() = default;
+            OpticalFlow(const OpticalFlowParam &optical_flow_param) : optical_flow_param_(optical_flow_param) {}
             void update(const cv::Mat &frame_curr, std::vector<LocalObject> &local_objects);
 
         private:

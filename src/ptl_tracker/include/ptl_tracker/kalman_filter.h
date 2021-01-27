@@ -21,6 +21,7 @@ namespace ptl
             void update_bbox(const cv::Rect2d &bbox);
             cv::Rect2d estimate(const double time);
             cv::Rect2d update(const cv::Rect2d &measurement);
+            cv::Rect2d predict_only(const double time);
 
             // ensure the bbox height and width is the latest one
             // especially in estimate step of tracker

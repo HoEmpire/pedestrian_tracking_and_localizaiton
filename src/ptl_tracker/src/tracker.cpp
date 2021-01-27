@@ -19,7 +19,7 @@ namespace ptl
             id = 0;
             nh_ = n;
             load_config(nh_);
-            opt_tracker = OpticalFlowParam(opt_param);
+            opt_tracker = OpticalFlow(opt_param);
             tf_listener = new tf2_ros::TransformListener(tf_buffer);
 
             //publisher
@@ -32,32 +32,18 @@ namespace ptl
             m_detector_sub = n->subscribe("/ptl_reid/detector_to_reid_to_tracker", 1, &TrackerInterface::detector_result_callback, this);
             m_reid_sub = n->subscribe("/ptl_reid/reid_to_tracker", 1, &TrackerInterface::reid_callback, this);
 
-            if (use_lidar)
+            if (use_compressed_image)
             {
-                m_lidar_sub.subscribe(*n, lidar_topic, 1);
-                if (use_compressed_image)
-                {
-                    m_compressed_image_sub.subscribe(*n, camera_topic, 1);
-                    sync_compressed = new message_filters::Synchronizer<MySyncPolicyCompressed>(MySyncPolicyCompressed(10), m_compressed_image_sub, m_lidar_sub);
-                    sync_compressed->registerCallback(boost::bind(&TrackerInterface::track_and_locate_callback_compressed, this, _1, _2));
-                }
-                else
-                {
-                    m_image_sub.subscribe(*n, camera_topic, 1);
-                    sync = new message_filters::Synchronizer<MySyncPolicy>(MySyncPolicy(10), m_image_sub, m_lidar_sub);
-                    sync->registerCallback(boost::bind(&TrackerInterface::track_and_locate_callback, this, _1, _2));
-                }
+                m_image_sub = n->subscribe(camera_topic, 1, &TrackerInterface::image_tracker_callback_compressed_img, this);
             }
             else
             {
-                if (use_compressed_image)
-                {
-                    m_data_sub = n->subscribe(camera_topic, 1, &TrackerInterface::tracker_callback_compressed_img, this);
-                }
-                else
-                {
-                    m_data_sub = n->subscribe(camera_topic, 1, &TrackerInterface::tracker_callback, this);
-                }
+                m_image_sub = n->subscribe(camera_topic, 1, &TrackerInterface::image_tracker_callback, this);
+            }
+
+            if (use_lidar)
+            {
+                m_lidar_sub = n->subscribe(lidar_topic, 1, &TrackerInterface::lidar_tracker_callback, this);
             }
         }
 
@@ -67,199 +53,52 @@ namespace ptl
             if (msg->ids.empty())
                 return;
             cv_bridge::CvImagePtr cv_ptr;
-            cv::Mat image_detection_result;
             cv_ptr = cv_bridge::toCvCopy(msg->img, sensor_msgs::image_encodings::BGR8);
+            //maximum block size, to perform augumentation and rectification of the tracker block
+            cv::Rect2d block_max(0, 0, cv_ptr->image.cols, cv_ptr->image.rows);
 
-            //maximum block size, to perform and operation to rectify the tracker block
-            cv::Rect2d block_max(cv::Point2d(0, 0), cv::Point2d(cv_ptr->image.cols - 1, cv_ptr->image.rows - 1));
-
-            //match the previous one
-            lock_guard<mutex> lk(mtx); //加锁pub
-
-            // bool is_blur = blur_detection(cv_ptr->image);
-
-            /*Data Association part: 
-                - two critertion:
-                    - augemented bboxes have enough overlap
-                    - Reid score is higher than a certain value
-            */
-            vector<int> matched_ids;
-            vector<AssociationVector> detector_bbox_ass_vec;
-            if (!local_objects_list.empty())
-            {
-                ROS_INFO_STREAM(msg->bboxes.size() << " bboxes detected!");
-                for (int i = 0; i < msg->bboxes.size(); i++)
-                {
-                    AssociationVector ass_vec;
-                    ROS_INFO("Deal with bboxes...");
-                    cv::Rect2d detector_bbox_origin = Rect2d(msg->bboxes[i].data[0], msg->bboxes[i].data[1],
-                                                             msg->bboxes[i].data[2], msg->bboxes[i].data[3]);
-                    cv::Rect2d detector_bbox = BboxPadding(detector_bbox_origin, block_max, detector_bbox_padding);
-                    print_bbox(detector_bbox_origin);
-                    // ROS_INFO_STREAM("Detector bbox:" << msg->bboxes[i].data[0] << ", " << msg->bboxes[i].data[1] << ", "
-                    //  << msg->bboxes[i].data[2] << ", " << msg->bboxes[i].data[3]);
-                    for (int j = 0; j < local_objects_list.size(); j++)
-                    {
-                        double bbox_overlap_ratio_score = cal_bbox_overlap_ratio(local_objects_list[j].bbox, detector_bbox);
-                        ROS_INFO_STREAM("Bbox overlap ratio: " << bbox_overlap_ratio_score);
-                        print_bbox(local_objects_list[j].bbox);
-                        if (bbox_overlap_ratio_score > bbox_overlap_ratio_threshold)
-                        {
-                            float min_query_score = local_objects_list[j].find_min_query_score(feature_ros_to_eigen(msg->features[i]));
-                            if (min_query_score < reid_match_threshold)
-                                ass_vec.add_new_ass(AssociationType(j, min_query_score, cal_bbox_match_score(detector_bbox_origin, local_objects_list[j].bbox)));
-                        }
-                    }
-                    if (ass_vec.ass_vector.size() > 1)
-                        ass_vec.reranking();
-                    ass_vec.report();
-                    ROS_INFO("---------------------------------");
-                    detector_bbox_ass_vec.push_back(ass_vec);
-                }
-                uniquify_detector_association_vectors(detector_bbox_ass_vec, local_objects_list.size());
-                ROS_INFO("---Report after uniquification---");
-                for (auto ass : detector_bbox_ass_vec)
-                {
-                    ass.report();
-                }
-            }
-            else
-            {
-                detector_bbox_ass_vec = vector<AssociationVector>(msg->bboxes.size(), AssociationVector());
-            }
+            //associate the detected bboxes with tracking bboxes
+            vector<AssociationVector> all_detected_bbox_ass_vec;
+            detector_and_tracker_association(msg, block_max, all_detected_bbox_ass_vec);
 
             //local object list management
-            for (int i = 0; i < detector_bbox_ass_vec.size(); i++)
-            {
-                if (detector_bbox_ass_vec[i].ass_vector.empty())
-                {
-                    ROS_INFO_STREAM("Adding Tracking Object with ID:" << id);
-                    LocalObject new_object(id, Rect2d(msg->bboxes[i].data[0], msg->bboxes[i].data[1], msg->bboxes[i].data[2], msg->bboxes[i].data[3]),
-                                           cv_ptr->image, feature_ros_to_eigen(msg->features[i]), tracker_param, kf_param, kf3d_param, msg->img.header.stamp);
-                    id++;
-                    //update database
-                    cv::Mat image_block = cv_ptr->image(new_object.bbox);
-                    update_local_database(new_object, image_block);
-                    local_objects_list.push_back(new_object);
-                }
-                else
-                {
-
-                    int matched_id = detector_bbox_ass_vec[i].ass_vector[0].id;
-                    ROS_INFO_STREAM("Object " << local_objects_list[matched_id].id << " re-detected!");
-
-                    local_objects_list[matched_id].reinit(Rect2d(msg->bboxes[i].data[0], msg->bboxes[i].data[1],
-                                                                 msg->bboxes[i].data[2], msg->bboxes[i].data[3]),
-                                                          cv_ptr->image, msg->img.header.stamp);
-
-                    local_objects_list[matched_id].features.push_back(feature_ros_to_eigen(msg->features[i]));
-
-                    //update database
-                    // ROS_WARN("Update database in detector callback");
-                    cv::Mat image_block = cv_ptr->image(local_objects_list[matched_id].bbox & block_max);
-                    update_local_database(local_objects_list[matched_id], image_block);
-                }
-            }
 
             //summary
-            ROS_INFO("------Local Object List Summary------");
-            ROS_INFO_STREAM("Local Object Num: " << local_objects_list.size());
-            for (auto lo : local_objects_list)
-            {
-                ROS_INFO_STREAM("id: " << lo.id << "| db imgs: " << lo.img_blocks.size() << "| overlap: " << lo.overlap_count);
-            }
-            ROS_INFO("------Summary End------");
-
-            time = ros::Time::now() - msg->header.stamp;
-            ROS_INFO_STREAM("Time: detector->reid->tracekr end:" << time.toSec() * 1000 << "ms");
+            report_local_object();
+            ROS_INFO_STREAM("******Out of Detector Callback******");
             std::cout << std::endl;
         }
 
         void TrackerInterface::update_bbox_by_tracker(cv::Mat &img, const ros::Time &update_time)
         {
-            cv::Mat image_detection_result;
+            //update the tracker and the database of each tracking object
             timer efficiency_clock;
-
-            cv::Rect2d block_max(cv::Point2d(0, 0), cv::Point2d(img.cols - 1, img.rows - 1));
-            lock_guard<mutex> lk(mtx); //加锁
-
-            // get the bbox measurement by optical flow
-            if (!local_objects_list.empty())
-            {
-                opt_tracker.update(img, local_objects_list);
-            }
-
-            // update each tracking object in tracking list by kalman filter
-            for (auto lo = local_objects_list.begin(); lo < local_objects_list.end(); lo++)
-            {
-                lo->track_bbox_by_optical_flow(update_time);
-
-                //update database
-                if (lo->is_track_succeed)
-                {
-                    update_local_database(lo, img(lo->bbox & block_max));
-                }
-            }
-
-            ROS_INFO_STREAM("update tracker:" << efficiency_clock.toc() << " s");
-            efficiency_clock.tic();
+            track_bbox_and_update_database(img, update_time);
+            ROS_INFO_STREAM("update tracker:" << efficiency_clock.toc() * 1000 << " ms");
 
             //remove the tracker that loses track
-            for (auto lo = local_objects_list.begin(); lo < local_objects_list.end();)
-            {
-                // two criterion to determine whether tracking failure occurs:
-                // 1. too long from the last update by detector
-                // 2. continuous tracking failure in optical flow tracking
-                if (lo->tracking_fail_count >= track_fail_timeout_tick || lo->detector_update_count >= detector_update_timeout_tick)
-                {
-                    ptl_msgs::DeadTracker msg_pub; // publish the dead tracker to reid
-                    //TODO add n*2048 feature to DeadTraker
-                    for (auto ib : lo->img_blocks)
-                    {
-                        msg_pub.img_blocks.push_back(*cv_bridge::CvImage(std_msgs::Header(), "bgr8", ib).toImageMsg());
-                    }
-                    msg_pub.position = lo->position;
-                    if (msg_pub.img_blocks.size() > batch_num_min)
-                        m_track_to_reid_pub.publish(msg_pub);
-                    lo = local_objects_list.erase(lo);
-                    continue;
-                }
-                else
-                {
-                    lo++;
-                }
-            }
-            ROS_INFO_STREAM("remove dead tracker:" << efficiency_clock.toc() << " s");
             efficiency_clock.tic();
+            remove_dead_trackers();
+            ROS_INFO_STREAM("remove dead tracker:" << efficiency_clock.toc() * 1000 << " ms");
+
+            //udpate overlap flag
+            //TODO might remove this part
+            efficiency_clock.tic();
+            update_overlap_flag();
+            ROS_INFO_STREAM("udpate overlap flag:" << efficiency_clock.toc() * 1000 << " ms");
 
             //for visualization
-            Mat track_vis = img.clone();
-            for (auto lo : local_objects_list)
-            {
-                cv::rectangle(track_vis, lo.bbox, lo.color, 4.0); //TODO add local id in here
-            }
-            std::string reid_infos_text;
-            reid_infos_text = "Total: " + std::to_string(reid_infos.total_num) +
-                              "  Last Id: " + std::to_string(reid_infos.last_query_id);
-            cv::putText(track_vis, reid_infos_text, cv::Point(50, 50), cv::FONT_HERSHEY_COMPLEX, 1.5, cv::Scalar(0, 0, 255), 3.0);
-            m_track_vis_pub.publish(cv_bridge::CvImage(std_msgs::Header(), "bgr8", track_vis).toImageMsg());
-
-            ROS_INFO_STREAM("visualization:" << efficiency_clock.toc() << " s");
+            efficiency_clock.tic();
+            visualize_tracking();
+            ROS_INFO_STREAM("visualization:" << efficiency_clock.toc() * 1000 << " ms");
 
             //summary
             efficiency_clock.tic();
-            ROS_INFO("------Local Object List Summary------");
-            ROS_INFO_STREAM("Local Object Num: " << local_objects_list.size());
-            for (auto lo : local_objects_list)
-            {
-                ROS_INFO_STREAM("id: " << lo.id << "| database images num: " << lo.img_blocks.size());
-            }
-            ROS_INFO("------Summary End------");
-
-            ROS_INFO_STREAM("report:" << efficiency_clock.toc() << " s");
+            report_local_object();
+            ROS_INFO_STREAM("report:" << efficiency_clock.toc() * 1000 << " ms");
         }
 
-        void TrackerInterface::tracker_callback(const sensor_msgs::ImageConstPtr &msg)
+        void TrackerInterface::image_tracker_callback(const sensor_msgs::ImageConstPtr &msg)
         {
             ROS_INFO("******Into Tracker Callback******");
             cv_bridge::CvImagePtr cv_ptr;
@@ -269,35 +108,7 @@ namespace ptl
             std::cout << std::endl;
         }
 
-        void TrackerInterface::track_and_locate_callback(const sensor_msgs::ImageConstPtr &msg_img, const sensor_msgs::PointCloud2ConstPtr &msg_pc)
-        {
-            timer efficency_timer;
-            tracker_callback(msg_img);
-            update_overlap_flag();
-            ROS_INFO_STREAM("In track_and_locate_callback: image processing takes " << efficency_timer.toc());
-            efficency_timer.tic();
-            get_tf();
-            if (local_objects_list.empty())
-            {
-                update_tracker_pos_marker_visualization();
-                return;
-            }
-            pcl::PointCloud<pcl::PointXYZI> point_cloud;
-            pcl::fromROSMsg(*msg_pc, point_cloud);
-
-            //Resample and conditional filter the point cloud to reduce computation cost
-            //in the following steps
-            ROS_INFO_STREAM("Original point cloud size: " << point_cloud.size());
-            PointCloudProcessor pcp(point_cloud, pcp_param);
-            pcp.compute(true, true, false, false, false);
-            // ROS_INFO_STREAM("After resampled, point cloud size: " << pcp.pc_resample.size());
-            ROS_INFO_STREAM("After preprocessed, point cloud size: " << pcp.pc_conditional_filtered.size());
-            match_between_2d_and_3d(pcp.pc_conditional_filtered.makeShared(), msg_pc->header.stamp);
-            update_tracker_pos_marker_visualization();
-            ROS_INFO_STREAM("In track_and_locate_callback: point cloud processing takes " << efficency_timer.toc());
-        }
-
-        void TrackerInterface::tracker_callback_compressed_img(const sensor_msgs::CompressedImageConstPtr &msg)
+        void TrackerInterface::image_tracker_callback_compressed_img(const sensor_msgs::CompressedImageConstPtr &msg)
         {
             ROS_INFO("******Into Tracker Callback******");
             cv_bridge::CvImagePtr cv_ptr;
@@ -307,30 +118,35 @@ namespace ptl
             std::cout << std::endl;
         }
 
-        void TrackerInterface::track_and_locate_callback_compressed(const sensor_msgs::CompressedImageConstPtr &msg_img, const sensor_msgs::PointCloud2ConstPtr &msg_pc)
+        void TrackerInterface::lidar_tracker_callback(const sensor_msgs::PointCloud2ConstPtr &msg_pc)
         {
             timer efficency_timer;
-            tracker_callback_compressed(msg_img);
-            update_overlap_flag();
-            ROS_INFO_STREAM("In track_and_locate_callback: image processing takes " << efficency_timer.toc());
-            efficency_timer.tic();
+            //get tf of the current timestamp
             get_tf();
+
+            //clear the marker when there is no trakcing object
             if (local_objects_list.empty())
             {
                 update_tracker_pos_marker_visualization();
                 return;
             }
+
+            //data transform
             pcl::PointCloud<pcl::PointXYZI> point_cloud;
             pcl::fromROSMsg(*msg_pc, point_cloud);
+            ROS_INFO_STREAM("Original point cloud size: " << point_cloud.size());
 
             //Resample and conditional filter the point cloud to reduce computation cost
             //in the following steps
-            ROS_INFO_STREAM("Original point cloud size: " << point_cloud.size());
             PointCloudProcessor pcp(point_cloud, pcp_param);
             pcp.compute(true, true, false, false, false);
             // ROS_INFO_STREAM("After resampled, point cloud size: " << pcp.pc_resample.size());
             ROS_INFO_STREAM("After preprocessed, point cloud size: " << pcp.pc_conditional_filtered.size());
+
+            //match 2d bbox and 3d point cloud centroids
             match_between_2d_and_3d(pcp.pc_conditional_filtered.makeShared(), msg_pc->header.stamp);
+
+            //update visualization
             update_tracker_pos_marker_visualization();
             ROS_INFO_STREAM("In track_and_locate_callback: point cloud processing takes " << efficency_timer.toc());
         }
@@ -409,41 +225,18 @@ namespace ptl
             GPARAM(n, "/kalman_filter_3d/outlier_threshold", kf3d_param.outlier_threshold);
         }
 
-        bool TrackerInterface::blur_detection(cv::Mat img)
-        {
-            cv::Mat img_gray;
-            cv::cvtColor(img, img_gray, cv::COLOR_BGR2GRAY);
-            cv::Mat lap;
-            cv::Laplacian(img_gray, lap, CV_64F);
-
-            cv::Scalar mu, sigma;
-            cv::meanStdDev(lap, mu, sigma);
-            ROS_INFO_STREAM("Blur detection score: " << sigma.val[0] * sigma.val[0]);
-            return sigma.val[0] * sigma.val[0] < blur_detection_threshold;
-        }
-
         bool TrackerInterface::update_local_database(LocalObject &local_object, const cv::Mat &img_block)
         {
-            if (1.0 * img_block.rows / img_block.cols > height_width_ratio_min && 1.0 * img_block.rows / img_block.cols < height_width_ratio_max && local_object.time.toc() > record_interval)
+            // two criterion to manage local database:
+            // 1. appropriate width/height ratio
+            // 2. fulfill the minimum time interval
+            if (1.0 * img_block.rows / img_block.cols > height_width_ratio_min &&
+                1.0 * img_block.rows / img_block.cols < height_width_ratio_max &&
+                local_object.database_update_timer.toc() > record_interval)
             {
                 local_object.img_blocks.push_back(img_block);
-                local_object.time.tic();
+                local_object.database_update_timer.tic();
                 ROS_INFO_STREAM("Adding an image to the datebase id: " << local_object.id);
-                return true;
-            }
-            else
-            {
-                return false;
-            }
-        }
-
-        bool TrackerInterface::update_local_database(std::vector<LocalObject>::iterator local_object, const cv::Mat &img_block)
-        {
-            if (1.0 * img_block.rows / img_block.cols > height_width_ratio_min && 1.0 * img_block.rows / img_block.cols < height_width_ratio_max && local_object->time.toc() > record_interval)
-            {
-                local_object->img_blocks.push_back(img_block);
-                local_object->time.tic();
-                ROS_INFO_STREAM("Adding an image to the datebase id: " << local_object->id);
                 return true;
             }
             else
@@ -454,46 +247,55 @@ namespace ptl
 
         void TrackerInterface::match_between_2d_and_3d(const pcl::PointCloud<pcl::PointXYZI>::Ptr pc, const ros::Time &ros_pc_time)
         {
-            pcl::PointCloud<pcl::PointXYZI> pc_filtered;
+            pcl::PointCloud<pcl::PointXYZI> pc_tracking;
             for (auto &lo : local_objects_list)
             {
-                //stop 3d tracking
+                //stop 3d tracking when the detector fails to update this object for certain ticks
                 if (lo.detector_update_count > kf3d_param.stop_track_timeout)
                 {
                     continue;
                 }
 
-                if (lo.detector_update_count > kf3d_param.start_predict_only_timeout || lo.is_overlap) //TODO hard code in here
+                // only update this tracking object by kalman filter when the detector fails to update this object
+                // for certain ticks, or overlap of two objects occur
+                if (lo.detector_update_count > kf3d_param.start_predict_only_timeout || lo.is_overlap)
                 {
                     lo.update_3d_tracker(ros_pc_time);
                     continue;
                 }
 
+                // get the point cloud that might belong to this trackign object by reproject the point cloud to the image frame
                 pcl::PointCloud<pcl::PointXYZI> pc_seg = point_cloud_segementation(pc, lo.bbox);
+
                 if (pc_seg.empty())
                     continue;
+
+                //cluster the point cloud
                 PointCloudProcessor pcp(pc_seg, pcp_param);
-                pcp.compute(false, false, true, true, true); //TODO shit code
+                pcp.compute(false, false, true, true, true);
                 if (pcp.centroids.empty())
                     continue;
-                pc_filtered += *(pcp.pc_final);
-                pcl::PointXYZ p = pcp.get_centroid_closest();
+                pc_tracking += *(pcp.pc_final);
+                pcl::PointXYZ p = pcp.get_centroid_closest(); // take the closest cluster as tehe measurement
 
                 geometry_msgs::Point p_camera_frame, p_map_frame;
                 p_camera_frame.x = p.x;
                 p_camera_frame.y = p.y;
                 p_camera_frame.z = p.z;
 
+                //transform the measurement to the map frame
                 tf2::doTransform(p_camera_frame, p_map_frame, camera2map);
+
+                //update the 3d pos of this tracking object by kalman filter
                 lo.update_3d_tracker(p_map_frame, ros_pc_time);
             }
 
             //pcl to ros for debug
-            sensor_msgs::PointCloud2 pc_filtered_msg;
-            pcl::toROSMsg(pc_filtered, pc_filtered_msg);
-            tf2::doTransform(pc_filtered_msg, pc_filtered_msg, camera2map);
-            pc_filtered_msg.header.frame_id = map_frame;
-            m_pc_filtered_debug.publish(pc_filtered_msg);
+            sensor_msgs::PointCloud2 pc_tracking_msg;
+            pcl::toROSMsg(pc_tracking, pc_tracking_msg);
+            tf2::doTransform(pc_tracking_msg, pc_tracking_msg, camera2map);
+            pc_tracking_msg.header.frame_id = map_frame;
+            m_pc_filtered_debug.publish(pc_tracking_msg);
         }
 
         void TrackerInterface::get_tf()
@@ -503,8 +305,8 @@ namespace ptl
             {
                 lidar2camera = tf_buffer.lookupTransform(camera_frame, lidar_frame,
                                                          ros::Time(0), ros::Duration(0.05));
-                lidar2map = tf_buffer.lookupTransform(map_frame, lidar_frame, ros::Time(0), ros::Duration(0.05));
-                camera2map = tf_buffer.lookupTransform(map_frame, camera_frame, ros::Time(0), ros::Duration(0.05));
+                lidar2map = tf_buffer.lookupTransform(map_frame, lidar_frame, ros::Time(0), ros::Duration(0.01));
+                camera2map = tf_buffer.lookupTransform(map_frame, camera_frame, ros::Time(0), ros::Duration(0.01));
             }
             catch (tf2::TransformException &ex)
             {
@@ -589,13 +391,190 @@ namespace ptl
                     {
                         continue;
                     }
-                    if ((BboxPadding(lo.bbox, match_centroid_padding) & BboxPadding(lo2.bbox, match_centroid_padding)).area() > 1e-3)
+                    if ((BboxPadding(lo.bbox, match_centroid_padding) & BboxPadding(lo2.bbox, match_centroid_padding)).area() > 1e-3) //TODO hard code in here
                     {
                         lo.is_overlap = true;
                         lo2.is_overlap = true;
                     }
                 }
             }
+        }
+
+        void TrackerInterface::track_bbox_and_update_database(const cv::Mat &img, const ros::Time &update_time)
+        {
+            cv::Rect2d block_max(cv::Point2d(0, 0), cv::Point2d(img.cols - 1, img.rows - 1));
+            lock_guard<mutex> lk(mtx); //lock the thread
+
+            // get the bbox measurement by optical flow
+            if (!local_objects_list.empty())
+            {
+                opt_tracker.update(img, local_objects_list);
+            }
+
+            // update each tracking object in tracking list by kalman filter
+            for (auto lo = local_objects_list.begin(); lo < local_objects_list.end(); lo++)
+            {
+                lo->track_bbox_by_optical_flow(update_time);
+
+                //update database
+                if (lo->is_track_succeed)
+                {
+                    update_local_database(lo, img(lo->bbox & block_max));
+                }
+            }
+        }
+
+        void TrackerInterface::remove_dead_trackers()
+        {
+            lock_guard<mutex> lk(mtx); //lock the thread
+            for (auto lo = local_objects_list.begin(); lo < local_objects_list.end();)
+            {
+                // two criterion to determine whether tracking failure occurs:
+                // 1. too long from the last update by detector
+                // 2. continuous tracking failure in optical flow tracking
+                if (lo->tracking_fail_count >= track_fail_timeout_tick || lo->detector_update_count >= detector_update_timeout_tick)
+                {
+                    ptl_msgs::DeadTracker msg_pub; // publish the dead tracker to reid
+                    //TODO add n*2048 feature to DeadTraker
+                    for (auto ib : lo->img_blocks)
+                    {
+                        msg_pub.img_blocks.push_back(*cv_bridge::CvImage(std_msgs::Header(), "bgr8", ib).toImageMsg());
+                    }
+                    msg_pub.position = lo->position;
+                    if (msg_pub.img_blocks.size() > batch_num_min)
+                        m_track_to_reid_pub.publish(msg_pub);
+                    lo = local_objects_list.erase(lo);
+                    continue;
+                }
+                else
+                {
+                    lo++;
+                }
+            }
+        }
+
+        void TrackerInterface::report_local_object()
+        {
+            ROS_INFO("------Local Object List Summary------");
+            ROS_INFO_STREAM("Local Object Num: " << local_objects_list.size());
+            for (auto lo : local_objects_list)
+            {
+                ROS_INFO_STREAM("id: " << lo.id << "| database images num: " << lo.img_blocks.size());
+            }
+            ROS_INFO("------Summary End------");
+        }
+
+        void TrackerInterface::visualize_tracking(const cv::Mat &img)
+        {
+            for (auto lo : local_objects_list)
+            {
+                cv::rectangle(img, lo.bbox, lo.color, 4.0); //TODO add local id in here
+            }
+            std::string reid_infos_text;
+            reid_infos_text = "Total: " + std::to_string(reid_infos.total_num) +
+                              "  Last Id: " + std::to_string(reid_infos.last_query_id);
+            cv::putText(img, reid_infos_text, cv::Point(50, 50), cv::FONT_HERSHEY_COMPLEX, 1.5, cv::Scalar(0, 0, 255), 3.0);
+            m_track_vis_pub.publish(cv_bridge::CvImage(std_msgs::Header(), "bgr8", img).toImageMsg());
+        }
+
+        void TrackerInterface::detector_and_tracker_association(const std::vector<cv::Rect2d> &bboxes, const cv::Rect2d &block_max, vector<AssociationVector> &all_detected_bbox_ass_vec)
+        {
+            lock_guard<mutex> lk(mtx); //lock
+
+            if (!local_objects_list.empty())
+            {
+                ROS_INFO_STREAM("SUMMARY:" << bboxes.size() << " bboxes detected!");
+                //perform matching from detector to tracker
+                for (int i = 0; i < bboxes.size(); i++)
+                {
+                    AssociationVector one_detected_object_ass_vec;
+                    cv::Rect2d detector_bbox = BboxPadding(bboxes[i], block_max, detector_bbox_padding);
+
+                    /*Data Association part: 
+                      - two critertion:
+                        - augemented bboxes(bbox with padding) have enough overlap
+                        - Reid score is higher than a certain value
+                    */
+                    for (int j = 0; j < local_objects_list.size(); j++)
+                    {
+                        double bbox_overlap_ratio = cal_bbox_overlap_ratio(local_objects_list[j].bbox, detector_bbox);
+                        ROS_INFO_STREAM("Bbox overlap ratio: " << bbox_overlap_ratio);
+                        std::cout << local_objects_list[j].bbox << std::endl;
+                        if (bbox_overlap_ratio > bbox_overlap_ratio_threshold)
+                        {
+                            //TODO might speed up in here
+                            //TODO add smooth in here
+                            float min_query_score = local_objects_list[j].find_min_query_score(feature_ros_to_eigen(msg->features[i]));
+
+                            //find a match, add it to association vector to construct the association graph
+                            if (min_query_score < reid_match_threshold)
+                                one_detected_object_ass_vec.add(AssociationType(j, min_query_score, cal_bbox_match_score(detector_bbox_origin, local_objects_list[j].bbox)));
+                        }
+                    }
+                    if (one_detected_object_ass_vec.ass_vector.size() > 1)
+                        one_detected_object_ass_vec.reranking();
+                    one_detected_object_ass_vec.report();
+                    ROS_INFO("---------------------------------");
+                    all_detected_bbox_ass_vec.push_back(one_detected_object_ass_vec);
+                }
+                uniquify_detector_association_vectors(all_detected_bbox_ass_vec, local_objects_list.size());
+
+                ROS_INFO("---Report after uniquification---");
+                for (auto ass : all_detected_bbox_ass_vec)
+                {
+                    ass.report();
+                }
+                ROS_INFO("---Report finished---");
+            }
+            else
+            {
+                //create empty association vectors to indicate all the detected objects are new
+                all_detected_bbox_ass_vec = vector<AssociationVector>(msg->bboxes.size(), AssociationVector());
+            }
+        }
+
+        void TrackerInterface::manage_local_objects_list_by_detector_result(const ptl_msgs::ImageBlockPtr &msg, vector<AssociationVector> &all_detected_bbox_ass_vec)
+        {
+            for (int i = 0; i < all_detected_bbox_ass_vec.size(); i++)
+            {
+                if (all_detected_bbox_ass_vec[i].ass_vector.empty())
+                {
+                    ROS_INFO_STREAM("Adding Tracking Object with ID:" << local_id_not_assigned);
+                    LocalObject new_object(local_id_not_assigned, Rect2d(msg->bboxes[i].data[0], msg->bboxes[i].data[1], msg->bboxes[i].data[2], msg->bboxes[i].data[3]),
+                                           cv_ptr->image, feature_ros_to_eigen(msg->features[i]), tracker_param, kf_param, kf3d_param, msg->img.header.stamp);
+                    local_id_not_assigned++;
+                    //update database
+                    cv::Mat image_block = cv_ptr->image(new_object.bbox);
+                    update_local_database(new_object, image_block);
+                    local_objects_list.push_back(new_object);
+                }
+                else
+                {
+
+                    int matched_id = detector_bbox_ass_vec[i].ass_vector[0].id;
+                    ROS_INFO_STREAM("Object " << local_objects_list[matched_id].id << " re-detected!");
+
+                    local_objects_list[matched_id].reinit(Rect2d(msg->bboxes[i].data[0], msg->bboxes[i].data[1],
+                                                                 msg->bboxes[i].data[2], msg->bboxes[i].data[3]),
+                                                          cv_ptr->image, msg->img.header.stamp);
+
+                    local_objects_list[matched_id].features.push_back(feature_ros_to_eigen(msg->features[i]));
+
+                    //update database
+                    cv::Mat image_block = cv_ptr->image(local_objects_list[matched_id].bbox & block_max);
+                    update_local_database(local_objects_list[matched_id], image_block);
+                }
+            }
+        }
+
+        std::vector<cv::Rect2d> bbox_ros_to_opencv(const std::vector<std_msgs::UInt16MultiArray> &bbox_ros)
+        {
+            std::vector<cv::Rect2d> bbox_opencv;
+            for (auto b : bbox_ros)
+            {
+                bbox_opencv.push_back(Rect2d(b.data[0], b.data[1], b.data[2], b.data[3]));
+            }
+            return bbox_opencv;
         }
     } // namespace tracker
 
