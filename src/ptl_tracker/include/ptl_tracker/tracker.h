@@ -63,40 +63,47 @@ namespace ptl
             void update_overlap_flag();
 
             //bbox update by optical flow tracker
-            void track_bbox_and_update_database(const cv::Mat &img, const ros::Time &update_time);
+            void track_bbox_by_optical_flow(const cv::Mat &img, const ros::Time &update_time, bool update_database);
             void remove_dead_trackers();
             void report_local_object();
-            void visualize_tracking(const cv::Mat &img);
+            void visualize_tracking(cv::Mat &img);
 
             //do segementation by reprojection
             pcl::PointCloud<pcl::PointXYZI> point_cloud_segementation(const pcl::PointCloud<pcl::PointXYZI>::Ptr pc, const cv::Rect2d &bbox);
 
             //associate the detected results with local tracking objects, make sure one detected object matches only 0 or 1 tracking object
             void detector_and_tracker_association(const std::vector<cv::Rect2d> &bboxes, const cv::Rect2d &block_max,
-                                                  vector<AssociationVector> &detector_bbox_ass_vec);
-            void manage_local_objects_list_by_detector_result(const ptl_msgs::ImageBlockPtr &msg, vector<AssociationVector> &all_detected_bbox_ass_vec);
+                                                  const std::vector<Eigen::VectorXf> &features, std::vector<AssociationVector> &all_detected_bbox_ass_vec);
+            void manage_local_objects_list_by_detector(const std::vector<cv::Rect2d> &bboxes, const cv::Rect2d &block_max,
+                                                       const std::vector<Eigen::VectorXf> &features, const cv::Mat &img,
+                                                       const ros::Time &update_time,
+                                                       const std::vector<AssociationVector> &all_detected_bbox_ass_vec);
 
             std::vector<cv::Rect2d> bbox_ros_to_opencv(const std::vector<std_msgs::UInt16MultiArray> &bbox_ros);
+            void bbox_rect(const cv::Rect2d &bbox_max);
 
         public:
             std::vector<LocalObject> local_objects_list;
 
         private:
-            int local_id_not_assigned = 0;
             ros::NodeHandle *nh_;
             ros::Publisher m_track_vis_pub, m_track_to_reid_pub, m_track_marker_pub;
             ros::Publisher m_pc_filtered_debug, m_pc_cluster_debug;
             ros::Subscriber m_detector_sub, m_image_sub, m_reid_sub, m_lidar_sub;
-            std::mutex mtx;
-            struct ReidInfo reid_infos;
+
+            //tf
             tf2_ros::Buffer tf_buffer;
             tf2_ros::TransformListener *tf_listener;
-
             geometry_msgs::TransformStamped lidar2camera, lidar2map, camera2map;
 
-            OpticalFlow opt_tracker;
+            //lock
+            std::mutex mtx;
+            ReidInfo reid_infos;
 
-            //param
+            OpticalFlow opt_tracker;
+            int local_id_not_assigned = 0;
+
+            //params
             std::string lidar_topic, camera_topic;
             std::string map_frame, lidar_frame, camera_frame;
             bool use_compressed_image = true;

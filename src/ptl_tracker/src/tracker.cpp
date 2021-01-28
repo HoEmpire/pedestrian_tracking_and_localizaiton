@@ -14,10 +14,8 @@ namespace ptl
 {
     namespace tracker
     {
-        TrackerInterface::TrackerInterface(ros::NodeHandle *n)
+        TrackerInterface::TrackerInterface(ros::NodeHandle *n) : nh_(n)
         {
-            id = 0;
-            nh_ = n;
             load_config(nh_);
             opt_tracker = OpticalFlow(opt_param);
             tf_listener = new tf2_ros::TransformListener(tf_buffer);
@@ -52,17 +50,27 @@ namespace ptl
             ROS_INFO_STREAM("******Into Detector Callback******");
             if (msg->ids.empty())
                 return;
+            vector<Eigen::VectorXf> features;
+            vector<cv::Rect2d> bboxes;
+            for (int i = 0; i < msg->features.size(); i++)
+            {
+                bboxes.push_back(cv::Rect2d(msg->bboxes[i].data[0], msg->bboxes[i].data[1], msg->bboxes[i].data[2], msg->bboxes[i].data[3]));
+                features.push_back(feature_ros_to_eigen(msg->features[i]));
+            }
             cv_bridge::CvImagePtr cv_ptr;
             cv_ptr = cv_bridge::toCvCopy(msg->img, sensor_msgs::image_encodings::BGR8);
             //maximum block size, to perform augumentation and rectification of the tracker block
             cv::Rect2d block_max(0, 0, cv_ptr->image.cols, cv_ptr->image.rows);
 
+            //update by optical flow first
+            track_bbox_by_optical_flow(cv_ptr->image, msg->header.stamp, false);
+
             //associate the detected bboxes with tracking bboxes
             vector<AssociationVector> all_detected_bbox_ass_vec;
-            detector_and_tracker_association(msg, block_max, all_detected_bbox_ass_vec);
+            detector_and_tracker_association(bboxes, block_max, features, all_detected_bbox_ass_vec);
 
             //local object list management
-
+            manage_local_objects_list_by_detector(bboxes, block_max, features, cv_ptr->image, msg->header.stamp, all_detected_bbox_ass_vec);
             //summary
             report_local_object();
             ROS_INFO_STREAM("******Out of Detector Callback******");
@@ -73,7 +81,7 @@ namespace ptl
         {
             //update the tracker and the database of each tracking object
             timer efficiency_clock;
-            track_bbox_and_update_database(img, update_time);
+            track_bbox_by_optical_flow(img, update_time, true);
             ROS_INFO_STREAM("update tracker:" << efficiency_clock.toc() * 1000 << " ms");
 
             //remove the tracker that loses track
@@ -89,7 +97,8 @@ namespace ptl
 
             //for visualization
             efficiency_clock.tic();
-            visualize_tracking();
+            cv::Mat img_vis = img.clone();
+            visualize_tracking(img_vis);
             ROS_INFO_STREAM("visualization:" << efficiency_clock.toc() * 1000 << " ms");
 
             //summary
@@ -101,9 +110,11 @@ namespace ptl
         void TrackerInterface::image_tracker_callback(const sensor_msgs::ImageConstPtr &msg)
         {
             ROS_INFO("******Into Tracker Callback******");
+            timer img_proc_timer;
             cv_bridge::CvImagePtr cv_ptr;
             cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
             update_bbox_by_tracker(cv_ptr->image, cv_ptr->header.stamp);
+            ROS_INFO_STREAM("optical flow tracking takes" << img_proc_timer.toc() * 1000 << " ms");
             ROS_INFO("******Out of Tracker Callback******");
             std::cout << std::endl;
         }
@@ -111,9 +122,11 @@ namespace ptl
         void TrackerInterface::image_tracker_callback_compressed_img(const sensor_msgs::CompressedImageConstPtr &msg)
         {
             ROS_INFO("******Into Tracker Callback******");
+            timer img_proc_timer;
             cv_bridge::CvImagePtr cv_ptr;
             cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
             update_bbox_by_tracker(cv_ptr->image, cv_ptr->header.stamp);
+            ROS_INFO_STREAM("optical flow tracking takes" << img_proc_timer.toc() * 1000 << " ms");
             ROS_INFO("******Out of Tracker Callback******");
             std::cout << std::endl;
         }
@@ -400,26 +413,24 @@ namespace ptl
             }
         }
 
-        void TrackerInterface::track_bbox_and_update_database(const cv::Mat &img, const ros::Time &update_time)
+        void TrackerInterface::track_bbox_by_optical_flow(const cv::Mat &img, const ros::Time &update_time, bool update_database)
         {
             cv::Rect2d block_max(cv::Point2d(0, 0), cv::Point2d(img.cols - 1, img.rows - 1));
             lock_guard<mutex> lk(mtx); //lock the thread
-
             // get the bbox measurement by optical flow
-            if (!local_objects_list.empty())
-            {
-                opt_tracker.update(img, local_objects_list);
-            }
+            opt_tracker.update(img, local_objects_list);
 
             // update each tracking object in tracking list by kalman filter
-            for (auto lo = local_objects_list.begin(); lo < local_objects_list.end(); lo++)
+            for (auto &lo : local_objects_list)
             {
-                lo->track_bbox_by_optical_flow(update_time);
-
+                std::cout << lo.bbox << std::endl;
+                lo.track_bbox_by_optical_flow(update_time);
+                bbox_rect(block_max);
+                std::cout << lo.bbox << std::endl;
                 //update database
-                if (lo->is_track_succeed)
+                if (lo.is_track_succeed & update_database)
                 {
-                    update_local_database(lo, img(lo->bbox & block_max));
+                    update_local_database(lo, img(lo.bbox));
                 }
             }
         }
@@ -460,15 +471,19 @@ namespace ptl
             for (auto lo : local_objects_list)
             {
                 ROS_INFO_STREAM("id: " << lo.id << "| database images num: " << lo.img_blocks.size());
+                std::cout << lo.bbox << std::endl;
             }
             ROS_INFO("------Summary End------");
         }
 
-        void TrackerInterface::visualize_tracking(const cv::Mat &img)
+        void TrackerInterface::visualize_tracking(cv::Mat &img)
         {
             for (auto lo : local_objects_list)
             {
-                cv::rectangle(img, lo.bbox, lo.color, 4.0); //TODO add local id in here
+                cv::rectangle(img, lo.bbox, lo.color, 4.0);                         //TODO add local id in here
+                cv::rectangle(img, lo.bbox_optical_flow, cv::Scalar(0, 0, 0), 4.0); //TODO add local id in here
+                for (auto kp : lo.keypoints_pre)
+                    cv::circle(img, kp, 2, cv::Scalar(255, 0, 0), 2);
             }
             std::string reid_infos_text;
             reid_infos_text = "Total: " + std::to_string(reid_infos.total_num) +
@@ -477,10 +492,11 @@ namespace ptl
             m_track_vis_pub.publish(cv_bridge::CvImage(std_msgs::Header(), "bgr8", img).toImageMsg());
         }
 
-        void TrackerInterface::detector_and_tracker_association(const std::vector<cv::Rect2d> &bboxes, const cv::Rect2d &block_max, vector<AssociationVector> &all_detected_bbox_ass_vec)
+        void TrackerInterface::detector_and_tracker_association(const std::vector<cv::Rect2d> &bboxes, const cv::Rect2d &block_max,
+                                                                const std::vector<Eigen::VectorXf> &features,
+                                                                std::vector<AssociationVector> &all_detected_bbox_ass_vec)
         {
-            lock_guard<mutex> lk(mtx); //lock
-
+            // lock_guard<mutex> lk(mtx); //lock
             if (!local_objects_list.empty())
             {
                 ROS_INFO_STREAM("SUMMARY:" << bboxes.size() << " bboxes detected!");
@@ -489,7 +505,7 @@ namespace ptl
                 {
                     AssociationVector one_detected_object_ass_vec;
                     cv::Rect2d detector_bbox = BboxPadding(bboxes[i], block_max, detector_bbox_padding);
-
+                    std::cout << "Detector" << i << " bbox: " << bboxes[i] << std::endl;
                     /*Data Association part: 
                       - two critertion:
                         - augemented bboxes(bbox with padding) have enough overlap
@@ -499,16 +515,16 @@ namespace ptl
                     {
                         double bbox_overlap_ratio = cal_bbox_overlap_ratio(local_objects_list[j].bbox, detector_bbox);
                         ROS_INFO_STREAM("Bbox overlap ratio: " << bbox_overlap_ratio);
-                        std::cout << local_objects_list[j].bbox << std::endl;
+                        std::cout << "Tracker " << local_objects_list[j].id << " bbox: " << local_objects_list[j].bbox << std::endl;
                         if (bbox_overlap_ratio > bbox_overlap_ratio_threshold)
                         {
                             //TODO might speed up in here
                             //TODO add smooth in here
-                            float min_query_score = local_objects_list[j].find_min_query_score(feature_ros_to_eigen(msg->features[i]));
+                            float min_query_score = local_objects_list[j].find_min_query_score(features[i]);
 
                             //find a match, add it to association vector to construct the association graph
                             if (min_query_score < reid_match_threshold)
-                                one_detected_object_ass_vec.add(AssociationType(j, min_query_score, cal_bbox_match_score(detector_bbox_origin, local_objects_list[j].bbox)));
+                                one_detected_object_ass_vec.add(AssociationType(j, min_query_score, cal_bbox_match_score(bboxes[i], local_objects_list[j].bbox)));
                         }
                     }
                     if (one_detected_object_ass_vec.ass_vector.size() > 1)
@@ -529,45 +545,50 @@ namespace ptl
             else
             {
                 //create empty association vectors to indicate all the detected objects are new
-                all_detected_bbox_ass_vec = vector<AssociationVector>(msg->bboxes.size(), AssociationVector());
+                all_detected_bbox_ass_vec = vector<AssociationVector>(bboxes.size(), AssociationVector());
             }
         }
 
-        void TrackerInterface::manage_local_objects_list_by_detector_result(const ptl_msgs::ImageBlockPtr &msg, vector<AssociationVector> &all_detected_bbox_ass_vec)
+        void TrackerInterface::manage_local_objects_list_by_detector(const std::vector<cv::Rect2d> &bboxes, const cv::Rect2d &block_max,
+                                                                     const std::vector<Eigen::VectorXf> &features, const cv::Mat &img,
+                                                                     const ros::Time &update_time,
+                                                                     const std::vector<AssociationVector> &all_detected_bbox_ass_vec)
         {
+            lock_guard<mutex> lk(mtx); //lock the thread
             for (int i = 0; i < all_detected_bbox_ass_vec.size(); i++)
             {
+
                 if (all_detected_bbox_ass_vec[i].ass_vector.empty())
                 {
+                    //this detected object is a new object
                     ROS_INFO_STREAM("Adding Tracking Object with ID:" << local_id_not_assigned);
-                    LocalObject new_object(local_id_not_assigned, Rect2d(msg->bboxes[i].data[0], msg->bboxes[i].data[1], msg->bboxes[i].data[2], msg->bboxes[i].data[3]),
-                                           cv_ptr->image, feature_ros_to_eigen(msg->features[i]), tracker_param, kf_param, kf3d_param, msg->img.header.stamp);
+                    LocalObject new_object(local_id_not_assigned, bboxes[i], features[i],
+                                           tracker_param, kf_param, kf3d_param, update_time);
                     local_id_not_assigned++;
                     //update database
-                    cv::Mat image_block = cv_ptr->image(new_object.bbox);
-                    update_local_database(new_object, image_block);
+                    update_local_database(new_object, img(new_object.bbox));
                     local_objects_list.push_back(new_object);
                 }
                 else
                 {
-
-                    int matched_id = detector_bbox_ass_vec[i].ass_vector[0].id;
+                    //re-detect a previous tracking object
+                    int matched_id = all_detected_bbox_ass_vec[i].ass_vector[0].id;
                     ROS_INFO_STREAM("Object " << local_objects_list[matched_id].id << " re-detected!");
 
-                    local_objects_list[matched_id].reinit(Rect2d(msg->bboxes[i].data[0], msg->bboxes[i].data[1],
-                                                                 msg->bboxes[i].data[2], msg->bboxes[i].data[3]),
-                                                          cv_ptr->image, msg->img.header.stamp);
-
-                    local_objects_list[matched_id].features.push_back(feature_ros_to_eigen(msg->features[i]));
+                    local_objects_list[matched_id].track_bbox_by_detector(bboxes[i], update_time);
+                    local_objects_list[matched_id].features.push_back(features[i]);
 
                     //update database
-                    cv::Mat image_block = cv_ptr->image(local_objects_list[matched_id].bbox & block_max);
-                    update_local_database(local_objects_list[matched_id], image_block);
+                    //TODO this part can be removed later
+                    update_local_database(local_objects_list[matched_id], img(local_objects_list[matched_id].bbox & block_max));
                 }
             }
+
+            //rectify the bbox
+            bbox_rect(block_max);
         }
 
-        std::vector<cv::Rect2d> bbox_ros_to_opencv(const std::vector<std_msgs::UInt16MultiArray> &bbox_ros)
+        std::vector<cv::Rect2d> TrackerInterface::bbox_ros_to_opencv(const std::vector<std_msgs::UInt16MultiArray> &bbox_ros)
         {
             std::vector<cv::Rect2d> bbox_opencv;
             for (auto b : bbox_ros)
@@ -575,6 +596,14 @@ namespace ptl
                 bbox_opencv.push_back(Rect2d(b.data[0], b.data[1], b.data[2], b.data[3]));
             }
             return bbox_opencv;
+        }
+
+        void TrackerInterface::bbox_rect(const cv::Rect2d &bbox_max)
+        {
+            for (auto &lo : local_objects_list)
+            {
+                lo.bbox = lo.bbox & bbox_max;
+            }
         }
     } // namespace tracker
 

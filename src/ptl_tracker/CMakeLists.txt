@@ -23,7 +23,7 @@ catkin_package(
     CATKIN_DEPENDS roscpp ptl_msgs tf2_sensor_msgs
     DEPENDS)
 
-find_package(OpenCV 3 REQUIRED)
+find_package(OpenCV 4 REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(PCL 1.7 REQUIRED) 
 
@@ -35,17 +35,17 @@ include_directories(
     "/usr/local/include/opentracker" 
 )
 find_library(OpenTracker_LIBS libopentracker.so /usr/local/lib)
-add_library(tracker_lib src/local_object.cpp src/tracker.cpp src/kalman_filter.cpp src/kalman_filter_3d.cpp)
+add_library(tracker_lib src/local_object.cpp src/tracker.cpp src/kalman_filter.cpp src/kalman_filter_3d.cpp src/optical_flow.cpp)
 target_link_libraries(tracker_lib ${OpenTracker_LIBS} ${OpenCV_LIBS} ${catkin_LIBRARIES}) 
 
 add_library(pcp_lib src/point_cloud_processor.cpp)
 
-# add_executable(tracker src/main.cpp) 
-# target_link_libraries(tracker tracker_lib pcp_lib)
-# add_dependencies(tracker ptl_msgs_generate_messages_cpp)
+add_executable(tracker src/main.cpp) 
+target_link_libraries(tracker tracker_lib pcp_lib)
+add_dependencies(tracker ptl_msgs_generate_messages_cpp)
 
 # add_executable(tf_publisher src/tf_publisher.cpp) 
 # target_link_libraries(tf_publisher ${catkin_LIBRARIES})
 
-add_executable(pc_test src/pc_experienment.cpp) 
-target_link_libraries(pc_test ${catkin_LIBRARIES})
+# add_executable(pc_test test/pc_experienment.cpp) 
+# target_link_libraries(pc_test ${catkin_LIBRARIES})

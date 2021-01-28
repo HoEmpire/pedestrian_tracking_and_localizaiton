@@ -8,8 +8,8 @@ namespace ptl
             return (query - gallery).squaredNorm();
         }
 
-        LocalObject::LocalObject(const int id_init, const cv::Rect2d &bbox_init, const cv::Mat &frame,
-                                 const Eigen::VectorXf &feat, const TrackerParam &track_param_init, const KalmanFilterParam &kf_param_init,
+        LocalObject::LocalObject(const int id_init, const cv::Rect2d &bbox_init, const Eigen::VectorXf &feat,
+                                 const TrackerParam &track_param_init, const KalmanFilterParam &kf_param_init,
                                  const KalmanFilter3dParam &kf3d_param_init, const ros::Time &time_now)
         {
             id = id_init;
@@ -24,6 +24,7 @@ namespace ptl
 
             kf = new KalmanFilter(kf_param_init);
             kf_3d = new KalmanFilter3d(kf3d_param_init);
+            std::cout << bbox_init << std::endl;
             kf->init(bbox_init);
             bbox_last_update_time = time_now;
 
@@ -60,10 +61,11 @@ namespace ptl
             //re-initialized the important state and data
             tracking_fail_count = 0;
             detector_update_count = 0;
-            keykoints_pre.clear();
+            keypoints_pre.clear();
 
             //update by kalman filter to the timestamp of the detector
-            bbox = kf->update(bbox_detector);
+            bbox = bbox_detector;
+            kf->init(bbox);
         }
 
         void LocalObject::update_3d_tracker(const geometry_msgs::Point &measurement, const ros::Time &time_now)

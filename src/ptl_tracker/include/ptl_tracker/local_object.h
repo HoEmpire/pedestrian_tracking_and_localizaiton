@@ -19,8 +19,8 @@ namespace ptl
         class LocalObject
         {
         public:
-            LocalObject(const int id_init, const cv::Rect2d &bbox_init, const cv::Mat &frame,
-                        const Eigen::VectorXf &feat, const TrackerParam &track_param_init, const KalmanFilterParam &kf_param_init,
+            LocalObject(const int id_init, const cv::Rect2d &bbox_init, const Eigen::VectorXf &feat,
+                        const TrackerParam &track_param_init, const KalmanFilterParam &kf_param_init,
                         const KalmanFilter3dParam &kf3d_param_init, const ros::Time &time_now);
 
             //update bbox by optical flow
@@ -52,7 +52,7 @@ namespace ptl
             //control the time interval between adding two image blocks into this local object database
             timer database_update_timer;
 
-            std::vector<cv::Point2f> keykoints_pre, keypoints_curr;
+            std::vector<cv::Point2f> keypoints_pre, keypoints_curr;
             cv::Rect2d bbox_measurement;
 
         private:

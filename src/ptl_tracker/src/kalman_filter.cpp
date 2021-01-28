@@ -31,7 +31,10 @@ namespace ptl
 
         void KalmanFilter::init(const cv::Rect2d &bbox)
         {
+
             _bbox = bbox;
+            std::cout << "kf_init" << _bbox << std::endl;
+            P = Eigen::Matrix4d::Identity() * _kf_param.P_factor;
             x = bbox_to_state(bbox);
         }
 
@@ -43,10 +46,12 @@ namespace ptl
         cv::Rect2d KalmanFilter::estimate(const double dt)
         {
             F.block<2, 2>(0, 2) = Eigen::Matrix2d::Identity() * dt;
+            // std::cout << "before estimate: x = \n"
+            //           << x << std::endl;
             x = F * x;
             Q = Eigen::Matrix4d::Zero();
-            // Q(0, 0) = 0.25 * dt * dt * dt * dt;
-            // Q(1, 1) = 0.25 * dt * dt * dt * dt;
+            Q(0, 0) = 0.5 * dt * dt;
+            Q(1, 1) = 0.5 * dt * dt;
             Q(2, 2) = dt;
             Q(3, 3) = dt;
             Q *= _kf_param.Q_factor;
