@@ -216,7 +216,7 @@ namespace ptl
                     std::cout << "Too few points, estimate affine partial matrix fails..." << std::endl;
                     lo.is_track_succeed = false;
                     lo.keypoints_curr.clear(); //clear all the points
-                    return;
+                    continue;
                 }
                 else
                 {
@@ -230,7 +230,7 @@ namespace ptl
                     {
                         std::cout << "Estimate affine partial matrix fails..." << std::endl;
                         lo.is_track_succeed = false;
-                        return;
+                        continue;
                     }
                     //estimate succeed
                     else

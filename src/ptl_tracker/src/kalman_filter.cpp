@@ -3,81 +3,99 @@ namespace ptl
 {
     namespace tracker
     {
-        inline Eigen::Vector4d KalmanFilter::bbox_to_state(const cv::Rect2d &bbox)
-        {
-            return Eigen::Vector4d(bbox.x + 0.5 * bbox.width, bbox.y + 0.5 * bbox.height, 0, 0);
-        }
 
-        inline Eigen::Vector2d KalmanFilter::bbox_to_measurement(const cv::Rect2d &bbox)
+        KalmanFilter::KalmanFilter(const KalmanFilterParam &kf_param) : kf_param_(kf_param)
         {
-            return Eigen::Vector2d(bbox.x + 0.5 * bbox.width, bbox.y + 0.5 * bbox.height);
-        }
-
-        inline cv::Rect2d KalmanFilter::point_to_bbox(const Eigen::Vector4d &point)
-        {
-            return cv::Rect2d(x(0) - 0.5 * _bbox.width, x(1) - 0.5 * _bbox.height, _bbox.width, _bbox.height);
-        }
-
-        KalmanFilter::KalmanFilter(const KalmanFilterParam &kf_param)
-        {
-            _kf_param = kf_param;
-            // Q = Eigen::Matrix4d::Identity() * kf_param.Q_factor;
-            P = Eigen::Matrix4d::Identity() * kf_param.P_factor;
-            R = Eigen::Matrix2d::Identity() * kf_param.R_factor;
-
             F = Eigen::Matrix4d::Identity();
             H = Eigen::MatrixXd::Identity(2, 4);
         }
 
         void KalmanFilter::init(const cv::Rect2d &bbox)
         {
+            // initilize covariance matrix
+            P_xy = Eigen::Matrix4d::Identity() * kf_param_.p_xy;
+            P_wh = Eigen::Matrix4d::Identity() * kf_param_.p_wh;
 
-            _bbox = bbox;
-            std::cout << "kf_init" << _bbox << std::endl;
-            P = Eigen::Matrix4d::Identity() * _kf_param.P_factor;
-            x = bbox_to_state(bbox);
+            //initialize state
+            x_xy = Eigen::Vector4d(bbox.x + 0.5 * bbox.width, bbox.y + 0.5 * bbox.height, 0, 0);
+            x_wh = Eigen::Vector4d(bbox.width, bbox.height, 0, 0);
         }
 
-        void KalmanFilter::update_bbox(const cv::Rect2d &bbox)
-        {
-            _bbox = bbox;
-        }
-
-        cv::Rect2d KalmanFilter::estimate(const double dt)
+        cv::Rect2d KalmanFilter::predict(const double dt)
         {
             F.block<2, 2>(0, 2) = Eigen::Matrix2d::Identity() * dt;
-            std::cout << "before estimate: x = \n"
-                      << x << std::endl;
-            x = F * x;
-            Q = Eigen::Matrix4d::Zero();
-            Q(0, 0) = 0.5 * dt * dt;
-            Q(1, 1) = 0.5 * dt * dt;
-            Q(2, 2) = dt;
-            Q(3, 3) = dt;
-            Q *= _kf_param.Q_factor;
-            P = F * P * F.transpose() + Q;
-            std::cout << "estimate: dt = " << dt << std::endl;
+            // std::cout << "before estimate: x = \n"
+            //           << x << std::endl;
+
+            //update state
+            x_xy = F * x_xy;
+            x_wh = F * x_wh;
+
+            Eigen::Matrix4d Q = Eigen::Matrix4d::Zero();
+
+            //random acceleration model
+            Q(0, 0) = Q(1, 1) = pow(dt, 4) * 0.25;
+            Q(2, 2) = Q(3, 3) = pow(dt, 2);
+            Q(0, 2) = Q(2, 0) = Q(1, 3) = Q(3, 1) = pow(dt, 3) * 0.5;
+
+            //update covariance
+            P_xy = F * P_xy * F.transpose() + Q * kf_param_.q_xy;
+            P_wh = F * P_wh * F.transpose() + Q * kf_param_.q_xy;
+
+            // std::cout << "estimate: dt = " << dt << std::endl;
             // std::cout << "estimate: F = \n"
             //           << F << std::endl;
-            std::cout << "estimate: x = \n"
-                      << x << std::endl;
+            // std::cout << "estimate: x = \n"
+            //           << x << std::endl;
             // std::cout << "estimate: P = \n"
             //           << P << std::endl;
-            return point_to_bbox(x);
+            return cv::Rect2d(x_xy(0), x_xy(1), x_wh(0), x_wh(1));
         }
 
-        cv::Rect2d KalmanFilter::update(const cv::Rect2d &measurement)
+        cv::Rect2d KalmanFilter::update(const cv::Mat &T_mat, const double dt)
         {
+            //T_mat = [ f * cos(theta) , -f * sin(theta), tx
+            //          f * sin(theta) ,  f * cos(theta), ty]
+            double f = sqrt(pow(T_mat.at<double>(0, 0), 2) + pow(T_mat.at<double>(0, 1), 2));
+            double theta = atan(T_mat.at<double>(1, 0) / T_mat.at<double>(1, 1));
+            double tx = T_mat.at<double>(0, 2);
+            double ty = T_mat.at<double>(1, 2);
+            double sin_theta = T_mat.at<double>(1, 0) / f;
+            double cos_theta = T_mat.at<double>(1, 1) / f;
 
-            Eigen::Vector2d z = bbox_to_measurement(measurement);
-            //update
-            Eigen::Matrix2d S = H * P * H.transpose() + R;
-            Eigen::MatrixXd K = P * H.transpose() * S.inverse();
+            // get measurement
+            Eigen::Vector4d z_xy = Eigen::Vector4d(f, theta, tx, ty); // z = [f, theat, tx, ty]
+            Eigen::Vector2d z_wh = Eigen::Vector2d(f, theta);         // z = [f, theat]
 
-            x = x + K * (z - H * x);                       //update x
-            P = (Eigen::Matrix4d::Identity() - K * H) * P; //update P
-            //finally update bbox
-            update_bbox(measurement);
+            // get measurement matrix by calculating jacobian
+            Eigen::MatrixXd H_xy, H_wh;
+            H_xy = Eigen::MatrixXd::Zero(4, 4);
+            H_wh = Eigen::MatrixXd::Zero(2, 4);
+
+            //for clarity, we use the variable with the same name instead of the Eigen index
+            double x = x_xy(0);
+            double y = x_xy(1);
+            double vx = x_xy(2);
+            double vy = x_xy(3);
+            double w = x_wh(0);
+            double h = x_wh(1);
+            double vw = x_wh(2);
+            double vh = x_wh(3);
+
+            // H_xy
+            // 1 row
+            H_xy(0, 0) = -(vx * dt * cos_theta + (y + vy * dt) * sin_theta - tx * pow(cos_theta, 2) - ty * pow(sin_theta, 2)) / pow(x, 2); //d(f)/d(x)
+            H_xy(0, 1) = sin_theta / x;                                                                                                    // d(f)/d(y)
+            H_xy(0, 2) = cos_theta * dt / x;                                                                                               // d(f)/d(vx)
+            H_xy(0, 3) = sin_theta * dt / x;                                                                                               // d(f)/d(vy)
+
+            
+            Eigen::MatrixXd K;
+            //update xy
+
+            K = P_xy * H.transpose() * (H * P_xy * H.transpose() +).inverse();
+            x_xy = x_xy + K * (z_xy - H * x_xy);                 //update x
+            P_xy = (Eigen::Matrix4d::Identity() - K * H) * P_xy; //update P
 
             // std::cout << "update: z = \n"
             //           << z << std::endl;
@@ -85,13 +103,13 @@ namespace ptl
             //           << K << std::endl;
             // std::cout << "update: x = \n"
             //           << x << std::endl;
-            return point_to_bbox(x);
+            return cv::Rect2d(x_xy(0), x_xy(1), x_wh(0), x_wh(1));
         }
 
         cv::Rect2d KalmanFilter::predict_only(const double dt)
         {
-            F.block<2, 2>(0, 2) = Eigen::Matrix2d::Identity() * dt;
-            return point_to_bbox(F * x);
+            return cv::Rect2d(x_xy(0) + x_xy(2) * dt, x_xy(1) + x_xy(3) * dt,
+                              x_wh(0) + x_wh(2) * dt, x_wh(1) + x_wh(3) * dt)
         }
     } // namespace tracker
 } // namespace ptl
