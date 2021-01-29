@@ -33,6 +33,11 @@ namespace ptl
             if (!keypoints_pre_all.empty())
             {
                 cv::calcOpticalFlowPyrLK(frame_pre_, frame_curr, keypoints_pre_all, keypoints_curr_all, status, errors);
+                // for (int i = 0; i < keypoints_curr_all.size(); i++)
+                // {
+                //     std::cout << keypoints_pre_all[i] << std::endl;
+                //     std::cout << keypoints_curr_all[i] << std::endl;
+                // }
                 ROS_INFO("FUCK2");
 
                 //calculate homography matrix to compensate camera motion
@@ -177,7 +182,7 @@ namespace ptl
                     {
                         if (is_motion_estimation_succeeed)
                         {
-                            if (!is_scene_points(keypoints_vo_pre[keypoints_vo_curr.size() - 1], keypoints_all[i]))
+                            if (!is_scene_points(lo.keypoints_pre[lo.keypoints_curr.size()], keypoints_all[i]))
                             {
                                 lo.keypoints_curr.push_back(keypoints_all[i]);
                             }
@@ -272,8 +277,8 @@ namespace ptl
 
         inline bool OpticalFlow::is_scene_points(const cv::Point2f &kp_pre, const cv::Point2f &kp_curr)
         {
-            double result = pow(kp_pre.x * H_motion.at<double>(0, 0) + kp_pre.x * H_motion.at<double>(0, 1) + H_motion.at<double>(0, 2) - kp_curr.x, 2) +
-                            pow(kp_pre.x * H_motion.at<double>(1, 0) + kp_pre.x * H_motion.at<double>(1, 1) + H_motion.at<double>(1, 2) - kp_curr.y, 2);
+            double result = pow(kp_pre.x * H_motion.at<double>(0, 0) + kp_pre.y * H_motion.at<double>(0, 1) + H_motion.at<double>(0, 2) - kp_curr.x, 2) +
+                            pow(kp_pre.x * H_motion.at<double>(1, 0) + kp_pre.y * H_motion.at<double>(1, 1) + H_motion.at<double>(1, 2) - kp_curr.y, 2);
             // std::cout << result << std::endl;
             // std::cout << H_motion << std::endl;
             // std::cout << kp_pre << std::endl;

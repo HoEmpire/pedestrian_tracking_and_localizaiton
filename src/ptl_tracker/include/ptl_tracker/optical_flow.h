@@ -27,7 +27,7 @@ namespace ptl
             int min_keypoints_to_cal_H_mat = 10;
 
             int min_keypoints_for_motion_estimation = 50;
-            int min_pixel_dis_square_for_scene_point = 25; //pixel dis = 5
+            int min_pixel_dis_square_for_scene_point = 4; //pixel dis = 2
         };
 
         class OpticalFlow

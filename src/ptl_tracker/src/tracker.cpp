@@ -48,6 +48,7 @@ namespace ptl
         void TrackerInterface::detector_result_callback(const ptl_msgs::ImageBlockPtr &msg)
         {
             ROS_INFO_STREAM("******Into Detector Callback******");
+            timer t_spent;
             if (msg->ids.empty())
                 return;
             vector<Eigen::VectorXf> features;
@@ -63,16 +64,17 @@ namespace ptl
             cv::Rect2d block_max(0, 0, cv_ptr->image.cols, cv_ptr->image.rows);
 
             //update by optical flow first
-            track_bbox_by_optical_flow(cv_ptr->image, msg->header.stamp, false);
+            track_bbox_by_optical_flow(cv_ptr->image, msg->img.header.stamp, false);
 
             //associate the detected bboxes with tracking bboxes
             vector<AssociationVector> all_detected_bbox_ass_vec;
             detector_and_tracker_association(bboxes, block_max, features, all_detected_bbox_ass_vec);
 
             //local object list management
-            manage_local_objects_list_by_detector(bboxes, block_max, features, cv_ptr->image, msg->header.stamp, all_detected_bbox_ass_vec);
+            manage_local_objects_list_by_detector(bboxes, block_max, features, cv_ptr->image, msg->img.header.stamp, all_detected_bbox_ass_vec);
             //summary
             report_local_object();
+            ROS_INFO_STREAM("detector update:" << t_spent.toc() * 1000 << " ms");
             ROS_INFO_STREAM("******Out of Detector Callback******");
             std::cout << std::endl;
         }
@@ -415,7 +417,7 @@ namespace ptl
 
         void TrackerInterface::track_bbox_by_optical_flow(const cv::Mat &img, const ros::Time &update_time, bool update_database)
         {
-            cv::Rect2d block_max(cv::Point2d(0, 0), cv::Point2d(img.cols - 1, img.rows - 1));
+            cv::Rect2d block_max(cv::Point2d(0, 0), cv::Point2d(img.cols, img.rows));
             lock_guard<mutex> lk(mtx); //lock the thread
             // get the bbox measurement by optical flow
             opt_tracker.update(img, local_objects_list);
@@ -424,6 +426,8 @@ namespace ptl
             for (auto &lo : local_objects_list)
             {
                 std::cout << lo.bbox << std::endl;
+                std::cout << update_time.toSec() << std::endl;
+                std::cout << lo.bbox_last_update_time.toSec() << std::endl;
                 lo.track_bbox_by_optical_flow(update_time);
                 bbox_rect(block_max);
                 std::cout << lo.bbox << std::endl;
@@ -602,7 +606,10 @@ namespace ptl
         {
             for (auto &lo : local_objects_list)
             {
+                std::cout << lo.bbox << std::endl;
+                std::cout << bbox_max << std::endl;
                 lo.bbox = lo.bbox & bbox_max;
+                std::cout << lo.bbox << std::endl;
             }
         }
     } // namespace tracker

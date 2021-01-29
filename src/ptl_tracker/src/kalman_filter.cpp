@@ -46,8 +46,8 @@ namespace ptl
         cv::Rect2d KalmanFilter::estimate(const double dt)
         {
             F.block<2, 2>(0, 2) = Eigen::Matrix2d::Identity() * dt;
-            // std::cout << "before estimate: x = \n"
-            //           << x << std::endl;
+            std::cout << "before estimate: x = \n"
+                      << x << std::endl;
             x = F * x;
             Q = Eigen::Matrix4d::Zero();
             Q(0, 0) = 0.5 * dt * dt;
@@ -56,11 +56,11 @@ namespace ptl
             Q(3, 3) = dt;
             Q *= _kf_param.Q_factor;
             P = F * P * F.transpose() + Q;
-            // std::cout << "estimate: dt = " << dt << std::endl;
+            std::cout << "estimate: dt = " << dt << std::endl;
             // std::cout << "estimate: F = \n"
             //           << F << std::endl;
-            // std::cout << "estimate: x = \n"
-            //           << x << std::endl;
+            std::cout << "estimate: x = \n"
+                      << x << std::endl;
             // std::cout << "estimate: P = \n"
             //           << P << std::endl;
             return point_to_bbox(x);
