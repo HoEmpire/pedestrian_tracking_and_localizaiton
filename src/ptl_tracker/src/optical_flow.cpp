@@ -238,7 +238,7 @@ namespace ptl
                         lo.is_track_succeed = true;
                         //get transformed bbox
                         std::cout << H << std::endl;
-                        lo.bbox_optical_flow = transform_bbox(H, lo.bbox);
+                        lo.T_measurement = H;
 
                         //remove outliers
                         int i = 0;

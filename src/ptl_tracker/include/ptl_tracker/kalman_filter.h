@@ -10,12 +10,15 @@ namespace ptl
         {
             double q_xy;
             double q_wh;
-            double p_xy;
-            double p_wh;
-            double r_yolo_xy;
-            double r_yolo_wh;
-            double r_opt_xy;
-            double r_opt_wh;
+            double p_xy_pos;
+            double p_xy_dp;
+            double p_wh_size;
+            double p_wh_ds;
+            double r_theta;
+            double r_f;
+            double r_tx;
+            double r_ty;
+            double residual_threshold;
         };
 
         class KalmanFilter
@@ -33,9 +36,11 @@ namespace ptl
             Eigen::Vector4d x_xy, x_wh;
 
         private:
-            Eigen::Matrix4d Q_wh, P_wh, Q_xy, P_xy, F;
-            Eigen::Matrix2d R_wh, Q_xy;
-            Eigen::MatrixXd H;
+            Eigen::Vector4d predict_measurement_xy();
+            Eigen::Vector4d predict_measurement_wh();
+
+            Eigen::Matrix4d P_wh, P_xy, F, R_xy;
+            Eigen::Matrix2d R_wh;
             cv::Rect2d _bbox;
             KalmanFilterParam kf_param_;
         };

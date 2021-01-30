@@ -35,12 +35,12 @@ namespace ptl
         void LocalObject::track_bbox_by_optical_flow(const ros::Time &time_now)
         {
             //predict the bbox at current timestamp by kalman filter
-            bbox = kf->estimate((time_now - bbox_last_update_time).toSec());
+            bbox = kf->predict((time_now - bbox_last_update_time).toSec());
 
             // if track succeed, use kalman filter to update the
-            if (is_track_succeed)
+            if (is_track_succeed && is_opt_enable)
             {
-                bbox = kf->update(bbox_optical_flow);
+                bbox = kf->update(T_measurement, (time_now - bbox_last_update_time).toSec());
                 tracking_fail_count = 0;
             }
             else
@@ -61,6 +61,7 @@ namespace ptl
             //re-initialized the important state and data
             tracking_fail_count = 0;
             detector_update_count = 0;
+            is_opt_enable = true;
             keypoints_pre.clear();
 
             //update by kalman filter to the timestamp of the detector
@@ -109,6 +110,11 @@ namespace ptl
                 }
             }
             return min_score;
+        }
+
+        cv::Rect2d LocalObject::bbox_of_lidar_time(const ros::Time &time_now)
+        {
+            return kf->predict_only((time_now - bbox_last_update_time).toSec());
         }
     } // namespace tracker
 

@@ -86,7 +86,7 @@ namespace ptl
             track_bbox_by_optical_flow(img, update_time, true);
             ROS_INFO_STREAM("update tracker:" << efficiency_clock.toc() * 1000 << " ms");
 
-            //remove the tracker that loses track
+            //remove the tracker that loses track and also check whether enable opt(to avoid degeneration under occlusion)
             efficiency_clock.tic();
             remove_dead_trackers();
             ROS_INFO_STREAM("remove dead tracker:" << efficiency_clock.toc() * 1000 << " ms");
@@ -186,6 +186,7 @@ namespace ptl
             GPARAM(n, "/tracker/track_fail_timeout_tick", track_fail_timeout_tick);
             GPARAM(n, "/tracker/bbox_overlap_ratio", bbox_overlap_ratio_threshold);
             GPARAM(n, "/tracker/detector_update_timeout_tick", detector_update_timeout_tick);
+            GPARAM(n, "/tracker/stop_opt_timeout", stop_opt_timeout);
             GPARAM(n, "/tracker/detector_bbox_padding", detector_bbox_padding);
             GPARAM(n, "/tracker/reid_match_threshold", reid_match_threshold);
             GPARAM(n, "/tracker/reid_match_bbox_dis", reid_match_bbox_dis);
@@ -229,9 +230,18 @@ namespace ptl
             GPARAM(n, "/camera_intrinsic/cy", camera_intrinsic.cy);
 
             //kalman filter
-            GPARAM(n, "/kalman_filter/q_factor", kf_param.Q_factor);
-            GPARAM(n, "/kalman_filter/r_factor", kf_param.R_factor);
-            GPARAM(n, "/kalman_filter/p_factor", kf_param.P_factor);
+            GPARAM(n, "/kalman_filter/q_xy", kf_param.q_xy);
+            GPARAM(n, "/kalman_filter/q_wh", kf_param.q_wh);
+            GPARAM(n, "/kalman_filter/p_xy_pos", kf_param.p_xy_pos);
+            GPARAM(n, "/kalman_filter/p_xy_dp", kf_param.p_xy_dp);
+            GPARAM(n, "/kalman_filter/p_wh_size", kf_param.p_wh_size);
+            GPARAM(n, "/kalman_filter/p_wh_ds", kf_param.p_wh_ds);
+            GPARAM(n, "/kalman_filter/r_theta", kf_param.r_theta);
+            GPARAM(n, "/kalman_filter/r_f", kf_param.r_f);
+            GPARAM(n, "/kalman_filter/r_tx", kf_param.r_tx);
+            GPARAM(n, "/kalman_filter/r_ty", kf_param.r_ty);
+            GPARAM(n, "/kalman_filter/residual_threshold", kf_param.residual_threshold);
+
             GPARAM(n, "/kalman_filter_3d/q_factor", kf3d_param.Q_factor);
             GPARAM(n, "/kalman_filter_3d/r_factor", kf3d_param.R_factor);
             GPARAM(n, "/kalman_filter_3d/p_factor", kf3d_param.P_factor);
@@ -280,7 +290,8 @@ namespace ptl
                 }
 
                 // get the point cloud that might belong to this trackign object by reproject the point cloud to the image frame
-                pcl::PointCloud<pcl::PointXYZI> pc_seg = point_cloud_segementation(pc, lo.bbox);
+                cv::Rect2d bbox_now = lo.bbox_of_lidar_time(ros_pc_time);
+                pcl::PointCloud<pcl::PointXYZI> pc_seg = point_cloud_segementation(pc, bbox_now);
 
                 if (pc_seg.empty())
                     continue;
@@ -463,6 +474,11 @@ namespace ptl
                 }
                 else
                 {
+                    // also disable opt when the occulusion occurs
+                    if (lo->detector_update_count >= stop_opt_timeout)
+                    {
+                        lo->is_opt_enable = false;
+                    }
                     lo++;
                 }
             }
@@ -484,10 +500,15 @@ namespace ptl
         {
             for (auto lo : local_objects_list)
             {
-                cv::rectangle(img, lo.bbox, lo.color, 4.0);                         //TODO add local id in here
-                cv::rectangle(img, lo.bbox_optical_flow, cv::Scalar(0, 0, 0), 4.0); //TODO add local id in here
-                for (auto kp : lo.keypoints_pre)
-                    cv::circle(img, kp, 2, cv::Scalar(255, 0, 0), 2);
+                if (lo.is_opt_enable)
+                {
+                    cv::rectangle(img, lo.bbox, lo.color, 4.0);
+                    cv::rectangle(img, cv::Rect2d(lo.bbox.x, lo.bbox.y, 40, 15), lo.color, -1);
+                    cv::putText(img, "id:" + std::to_string(lo.id), cv::Point(lo.bbox.x, lo.bbox.y + 15), cv::FONT_HERSHEY_TRIPLEX, 0.5, cv::Scalar(0, 0, 0), 1);
+                }
+
+                // for (auto kp : lo.keypoints_pre)
+                //     cv::circle(img, kp, 2, cv::Scalar(255, 0, 0), 2);
             }
             std::string reid_infos_text;
             reid_infos_text = "Total: " + std::to_string(reid_infos.total_num) +

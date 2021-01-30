@@ -35,8 +35,12 @@ namespace ptl
 
             float find_min_query_score(const Eigen::VectorXf &query);
 
+            cv::Rect2d bbox_of_lidar_time(const ros::Time &time_now);
+
             int id;
-            cv::Rect2d bbox, bbox_optical_flow;
+            bool is_opt_enable = true;
+            cv::Rect2d bbox;
+            cv::Mat T_measurement;
             int tracking_fail_count;
             int detector_update_count;
             int overlap_count;
