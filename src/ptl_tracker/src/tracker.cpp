@@ -291,6 +291,7 @@ namespace ptl
 
                 // get the point cloud that might belong to this trackign object by reproject the point cloud to the image frame
                 cv::Rect2d bbox_now = lo.bbox_of_lidar_time(ros_pc_time);
+                std::cout << "bbox_now: " << bbox_now << std::endl;
                 pcl::PointCloud<pcl::PointXYZI> pc_seg = point_cloud_segementation(pc, bbox_now);
 
                 if (pc_seg.empty())

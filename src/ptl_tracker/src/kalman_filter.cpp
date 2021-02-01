@@ -229,8 +229,9 @@ namespace ptl
 
         cv::Rect2d KalmanFilter::predict_only(const double dt)
         {
-            return cv::Rect2d(x_xy(0) + x_xy(2) * dt + (x_wh(0) + x_wh(2) * dt) / 2,
-                              x_xy(1) + x_xy(3) * dt + (x_wh(1) + x_wh(3) * dt) / 2,
+            std::cout << "dt: " << dt << std::endl;
+            return cv::Rect2d(x_xy(0) + x_xy(2) * dt - (x_wh(0) + x_wh(2) * dt) / 2,
+                              x_xy(1) + x_xy(3) * dt - (x_wh(1) + x_wh(3) * dt) / 2,
                               x_wh(0) + x_wh(2) * dt, x_wh(1) + x_wh(3) * dt);
         }
 
