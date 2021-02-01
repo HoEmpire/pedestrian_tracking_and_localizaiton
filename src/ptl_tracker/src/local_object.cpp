@@ -9,13 +9,13 @@ namespace ptl
         }
 
         LocalObject::LocalObject(const int id_init, const cv::Rect2d &bbox_init, const Eigen::VectorXf &feat,
-                                 const TrackerParam &track_param_init, const KalmanFilterParam &kf_param_init,
-                                 const KalmanFilter3dParam &kf3d_param_init, const ros::Time &time_now)
+                                 const KalmanFilterParam &kf_param_init, const KalmanFilter3dParam &kf3d_param_init,
+                                 const ros::Time &time_now)
         {
             id = id_init;
             bbox = bbox_init;
             features.push_back(feat);
-            tracker_param = track_param_init;
+            features_now = feat;
 
             tracking_fail_count = 0;
             detector_update_count = 0;
@@ -100,21 +100,26 @@ namespace ptl
 
         float LocalObject::find_min_query_score(const Eigen::VectorXf &query)
         {
-            float min_score = 100000.0;
-            for (auto feat : features)
-            {
-                float score = cal_reid_score(query, feat);
-                if (score < min_score)
-                {
-                    min_score = score;
-                }
-            }
-            return min_score;
+            // float min_score = 100000.0;
+            // for (auto feat : features)
+            // {
+            //     float score = cal_reid_score(query, feat);
+            //     if (score < min_score)
+            //     {
+            //         min_score = score;
+            //     }
+            // }
+            return cal_reid_score(query, features_now);
         }
 
         cv::Rect2d LocalObject::bbox_of_lidar_time(const ros::Time &time_now)
         {
             return kf->predict_only((time_now - bbox_last_update_time).toSec());
+        }
+
+        void LocalObject::update_feat(const Eigen::VectorXf &feature_new, float smooth_ratio)
+        {
+            features_now = smooth_ratio * features_now + (1 - smooth_ratio) * feature_new;
         }
     } // namespace tracker
 

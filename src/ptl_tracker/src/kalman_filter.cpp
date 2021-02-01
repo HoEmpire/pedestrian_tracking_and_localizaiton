@@ -79,8 +79,8 @@ namespace ptl
             // get measurement
             Eigen::Vector4d z_xy = Eigen::Vector4d(f, theta, tx, ty); // z = [f, theat, tx, ty]
             Eigen::Vector2d z_wh = Eigen::Vector2d(f, theta);         // z = [f, theat]
-            std::cout << "z_xy: " << z_xy << std::endl;
-            std::cout << "z_wh: " << z_wh << std::endl;
+            // std::cout << "z_xy: " << z_xy << std::endl;
+            // std::cout << "z_wh: " << z_wh << std::endl;
 
             // get measurement matrix by calculating jacobian
             Eigen::MatrixXd H_xy, H_wh;
@@ -171,16 +171,16 @@ namespace ptl
             double db_wh_dvy = pow(w, 2) * h * dt - pow(h, 3) * dt;
             H_wh(1, 3) = dgama * (da_wh_dvy * b_wh - db_wh_dvy * a_wh) / pow(b_wh, 2);
 
-            std::cout << "H_xy: " << H_xy << std::endl;
-            std::cout << "H_wh: " << H_wh << std::endl;
+            // std::cout << "H_xy: " << H_xy << std::endl;
+            // std::cout << "H_wh: " << H_wh << std::endl;
 
             //calculate K
             Eigen::MatrixXd K_xy, K_wh;
             K_xy = P_xy * H_xy.transpose() * (H_xy * P_xy * H_xy.transpose() + R_xy).inverse();
             K_wh = P_wh * H_wh.transpose() * (H_wh * P_wh * H_wh.transpose() + R_wh).inverse();
 
-            std::cout << "K_xy: " << K_xy << std::endl;
-            std::cout << "K_wh： " << K_wh << std::endl;
+            // std::cout << "K_xy: " << K_xy << std::endl;
+            // std::cout << "K_wh： " << K_wh << std::endl;
 
             //calculate predicted measurement
             double f_predicted_xy = cos_theta + (vx * dt * cos_theta + (y + vy * dt) * sin_theta - tx * pow(cos_theta, 2) - ty * pow(sin_theta, 2)) / x;
@@ -192,31 +192,31 @@ namespace ptl
             double theta_predicted_wh = atan(gama);
 
             //update x_xy, x_wh
-            std::cout << "x_xy before: " << x_xy << std::endl;
-            std::cout << "x_wh before: " << x_wh << std::endl;
+            // std::cout << "x_xy before: " << x_xy << std::endl;
+            // std::cout << "x_wh before: " << x_wh << std::endl;
             Eigen::Vector4d resiual_xy = z_xy - Eigen::Vector4d(f_predicted_xy, theta_predicted_xy, tx_predicted_xy, ty_predicted_xy);
             Eigen::Vector2d resiual_wh = z_wh - Eigen::Vector2d(f_predicted_wh, theta_predicted_wh);
-            std::cout << "residual_xy: " << resiual_xy << std::endl;
-            std::cout << "residual_wh: " << resiual_wh << std::endl;
+            // std::cout << "residual_xy: " << resiual_xy << std::endl;
+            // std::cout << "residual_wh: " << resiual_wh << std::endl;
 
             // wrong measurement
             if (sqrt(pow(resiual_xy(2), 2) + pow(resiual_xy(3), 2)) > kf_param_.residual_threshold)
             {
-                std::cout << "wrong measurement!!" << std::endl;
+                // std::cout << "wrong measurement!!" << std::endl;
                 return cv::Rect2d(x_xy(0) - x_wh(0) * 0.5, x_xy(1) - x_wh(1) * 0.5, x_wh(0), x_wh(1));
             }
 
             x_xy = x_xy + K_xy * resiual_xy;
             x_wh = x_wh + K_wh * resiual_wh;
 
-            std::cout << "x_xy after: " << x_xy << std::endl;
-            std::cout << "x_wh after: " << x_wh << std::endl;
+            // std::cout << "x_xy after: " << x_xy << std::endl;
+            // std::cout << "x_wh after: " << x_wh << std::endl;
 
             //update covariance matrix
             P_xy = (Eigen::Matrix4d::Identity() - K_xy * H_xy) * P_xy;
             P_wh = (Eigen::Matrix4d::Identity() - K_wh * H_wh) * P_wh;
-            std::cout << "P_xy after: " << P_xy << std::endl;
-            std::cout << "P_wh after: " << P_wh << std::endl;
+            // std::cout << "P_xy after: " << P_xy << std::endl;
+            // std::cout << "P_wh after: " << P_wh << std::endl;
 
             // std::cout << "update: z = \n"
             //           << z << std::endl;
@@ -229,7 +229,7 @@ namespace ptl
 
         cv::Rect2d KalmanFilter::predict_only(const double dt)
         {
-            std::cout << "dt: " << dt << std::endl;
+            // std::cout << "dt: " << dt << std::endl;
             return cv::Rect2d(x_xy(0) + x_xy(2) * dt - (x_wh(0) + x_wh(2) * dt) / 2,
                               x_xy(1) + x_xy(3) * dt - (x_wh(1) + x_wh(3) * dt) / 2,
                               x_wh(0) + x_wh(2) * dt, x_wh(1) + x_wh(3) * dt);

@@ -3,11 +3,20 @@ namespace ptl
 {
     namespace tracker
     {
-        //TODO add resize
         void OpticalFlow::update(const cv::Mat &frame_curr_bgr, std::vector<LocalObject> &local_objects)
         {
             cv::Mat frame_curr;
-            cv::cvtColor(frame_curr_bgr, frame_curr, cv::COLOR_BGR2GRAY);
+            if (optical_flow_param_.use_resize)
+            {
+                cv::resize(frame_curr_bgr, frame_curr, cv::Size(), 1.0 / optical_flow_param_.resize_factor,
+                           1.0 / optical_flow_param_.resize_factor, cv::INTER_AREA);
+                cv::cvtColor(frame_curr, frame_curr, cv::COLOR_BGR2GRAY);
+            }
+            else
+            {
+                cv::cvtColor(frame_curr_bgr, frame_curr, cv::COLOR_BGR2GRAY);
+            }
+
             //add first frame
             if (frame_pre_.empty() || local_objects.empty())
             {
@@ -23,9 +32,7 @@ namespace ptl
             //detect enought keypoints for each tracking object,
             // and forms a keypoints vector that conatins all the keypoints
             std::vector<cv::Point2f> keypoints_pre_all, keypoints_curr_all;
-            ROS_INFO("FUCK0");
             detect_enough_keypoints(local_objects, keypoints_pre_all);
-            ROS_INFO("FUCK1");
 
             //track keypoints by optical flow
             std::vector<uchar> status; // tracking succeed or not
@@ -38,7 +45,6 @@ namespace ptl
                 //     std::cout << keypoints_pre_all[i] << std::endl;
                 //     std::cout << keypoints_curr_all[i] << std::endl;
                 // }
-                ROS_INFO("FUCK2");
 
                 //calculate homography matrix to compensate camera motion
                 camera_motion_compensate(keypoints_curr_all, status);
@@ -46,10 +52,8 @@ namespace ptl
                 //remove the keypoints that fails to track,
                 //and update the current keypoints of the local object
                 update_local_objects_curr_kp(local_objects, keypoints_curr_all, status);
-                ROS_INFO("FUCK3");
                 //calculate the transform matrix and remove the outliers
                 calculate_measurement(local_objects);
-                ROS_INFO("FUCK4");
                 //update variable
                 frame_pre_ = frame_curr;
                 for (auto &lo : local_objects)
@@ -72,24 +76,32 @@ namespace ptl
         {
             for (auto &lo : local_objects)
             {
-
-                ROS_INFO("FUCK0.1");
                 // detect fast keypoints for the objects with too few succefully tracked keypoints
                 if (lo.keypoints_pre.size() < optical_flow_param_.min_keypoints_to_track * min_keypoints_num_factor(lo.bbox))
                 {
-                    ROS_INFO("FUCK0.2");
-                    cv::goodFeaturesToTrack(frame_pre_(lo.bbox), lo.keypoints_pre, optical_flow_param_.corner_detector_max_num,
-                                            optical_flow_param_.corner_detector_quality_level, optical_flow_param_.corner_detector_min_distance,
-                                            cv::noArray(), optical_flow_param_.corner_detector_block_size,
-                                            optical_flow_param_.corner_detector_use_harris, optical_flow_param_.corner_detector_k);
+                    if (optical_flow_param_.use_resize)
+                    {
+                        cv::Rect2d bbox_resize = cv::Rect2d(1.0 * lo.bbox.x / optical_flow_param_.resize_factor, 1.0 * lo.bbox.y / optical_flow_param_.resize_factor,
+                                                            1.0 * lo.bbox.width / optical_flow_param_.resize_factor, 1.0 * lo.bbox.height / optical_flow_param_.resize_factor);
+                        cv::goodFeaturesToTrack(frame_pre_(bbox_resize), lo.keypoints_pre, optical_flow_param_.corner_detector_max_num,
+                                                optical_flow_param_.corner_detector_quality_level, optical_flow_param_.corner_detector_min_distance,
+                                                cv::noArray(), optical_flow_param_.corner_detector_block_size,
+                                                optical_flow_param_.corner_detector_use_harris, optical_flow_param_.corner_detector_k);
+                    }
+                    else
+                    {
+                        cv::goodFeaturesToTrack(frame_pre_(lo.bbox), lo.keypoints_pre, optical_flow_param_.corner_detector_max_num,
+                                                optical_flow_param_.corner_detector_quality_level, optical_flow_param_.corner_detector_min_distance,
+                                                cv::noArray(), optical_flow_param_.corner_detector_block_size,
+                                                optical_flow_param_.corner_detector_use_harris, optical_flow_param_.corner_detector_k);
+                    }
+
                     //add  offset
-                    cv::Point2f tmp(lo.bbox.x, lo.bbox.y);
+                    cv::Point2f tmp(1.0 * lo.bbox.x / optical_flow_param_.resize_factor, 1.0 * lo.bbox.y / optical_flow_param_.resize_factor);
                     for (auto &p : lo.keypoints_pre)
                     {
                         p = p + tmp;
                     }
-
-                    ROS_INFO("FUCK0.3");
                 }
                 keypoints_all.insert(keypoints_all.end(), lo.keypoints_pre.begin(), lo.keypoints_pre.end());
             }
@@ -103,7 +115,7 @@ namespace ptl
                                         optical_flow_param_.corner_detector_use_harris, optical_flow_param_.corner_detector_k);
             }
             keypoints_all.insert(keypoints_all.end(), keypoints_vo_pre.begin(), keypoints_vo_pre.end());
-            std::cout << keypoints_all.size() << std::endl;
+            // std::cout << keypoints_all.size() << std::endl;
         }
 
         void OpticalFlow::camera_motion_compensate(std::vector<cv::Point2f> &keypoints_all, const std::vector<uchar> &status)
@@ -145,7 +157,7 @@ namespace ptl
                 { //estimate succeed
                     is_motion_estimation_succeeed = true;
                     //get transformed bbox
-                    std::cout << "Motion compensation matrix" << H_motion << std::endl;
+                    // std::cout << "Motion compensation matrix" << H_motion << std::endl;
 
                     //remove outliers
                     int i = 0;
@@ -220,11 +232,9 @@ namespace ptl
                 }
                 else
                 {
-                    ROS_INFO("FUCK3.0");
-                    std::cout << lo.keypoints_pre.size() << std::endl;
-                    std::cout << lo.keypoints_curr.size() << std::endl;
+                    // std::cout << lo.keypoints_pre.size() << std::endl;
+                    // std::cout << lo.keypoints_curr.size() << std::endl;
                     cv::Mat H = cv::estimateAffinePartial2D(lo.keypoints_pre, lo.keypoints_curr, inliers, cv::RANSAC);
-                    ROS_INFO("FUCK3.1");
                     //empty matrix means fail to estimate the transform matrix
                     if (H.empty())
                     {
@@ -237,8 +247,14 @@ namespace ptl
                     {
                         lo.is_track_succeed = true;
                         //get transformed bbox
-                        std::cout << H << std::endl;
+
+                        if (optical_flow_param_.use_resize)
+                        {
+                            H.at<double>(0, 2) = H.at<double>(0, 2) * optical_flow_param_.resize_factor;
+                            H.at<double>(1, 2) = H.at<double>(1, 2) * optical_flow_param_.resize_factor;
+                        }
                         lo.T_measurement = H;
+                        // std::cout << H << std::endl;
 
                         //remove outliers
                         int i = 0;

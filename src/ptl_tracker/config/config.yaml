@@ -18,24 +18,13 @@ tracker:
   reid_match_bbox_size_diff: 80
   stop_opt_timeout: 5
 
-kcf:
-  tracker_success_threshold: 10.4 #0.48还行
-  interp_factor: 0.012 # default 0.005
-  sigma: 0.4 # default 0.4 small sigma leads to higher tracking accuracy, larger sigma leads to less tracker lost
-  lambda: 0.0001 # default 0.0001
-  cell_size: 4 # default 4
-  padding: 2.5 # default 2.5
-  output_sigma_factor: 0.1 # default 0.1
-  template_size: 96 # default 96
-  scale_step: 1.05 # default 1.05
-  scale_weight: 0.95 # default 0.95
-
 local_database:
   height_width_ratio_min: 0.85
   height_width_ratio_max: 4.0
   blur_detection_threshold: 20.0
   record_interval: 0.1
   batch_num_min: 8
+  feature_smooth_ratio: 0.8
 
 pc_processor:
   resample_size: 0.1
@@ -76,3 +65,18 @@ kalman_filter_3d:
   start_predict_only_timeout: 5
   stop_track_timeout: 8
   outlier_threshold: 4.0
+
+optical_flow:
+  min_keypoints_to_track: 40
+  keypoints_num_factor_area: 8000
+  corner_detector_max_num: 100
+  corner_detector_quality_level: 0.0001
+  corner_detector_min_distance: 3
+  corner_detector_block_size: 3
+  corner_detector_use_harris: true
+  corner_detector_k: 0.03
+  min_keypoints_to_cal_H_mat: 10
+  min_keypoints_for_motion_estimation: 50
+  min_pixel_dis_square_for_scene_point: 2
+  use_resize: true
+  resize_factor: 2

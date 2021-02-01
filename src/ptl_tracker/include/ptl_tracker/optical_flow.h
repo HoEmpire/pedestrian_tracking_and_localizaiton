@@ -28,6 +28,9 @@ namespace ptl
 
             int min_keypoints_for_motion_estimation = 50;
             int min_pixel_dis_square_for_scene_point = 4; //pixel dis = 2
+
+            bool use_resize = true;
+            int resize_factor = 2;
         };
 
         class OpticalFlow

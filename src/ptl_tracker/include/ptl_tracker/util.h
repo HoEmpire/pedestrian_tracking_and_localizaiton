@@ -18,20 +18,6 @@ struct ReidInfo
     int last_query_id = -1;
 };
 
-struct TrackerParam
-{
-    float tracker_success_threshold = 0.2;
-    float interp_factor = 0.005;
-    float sigma = 0.4;
-    float lambda = 0.0001;
-    int cell_size = 4;
-    float padding = 2.5;
-    float output_sigma_factor = 0.1;
-    int template_size = 96;
-    float scale_step = 1.05;
-    float scale_weight = 0.95;
-};
-
 struct CameraIntrinsic
 {
     float fx, fy, cx, cy;

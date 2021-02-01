@@ -125,9 +125,9 @@ namespace ptl
             double reid_match_bbox_dis = 30;
             double reid_match_bbox_size_diff = 30;
             int match_centroid_padding = 20;
+            float feature_smooth_ratio = 0.8;
 
             //params
-            TrackerParam tracker_param;
             PointCloudProcessorParam pcp_param;
             OpticalFlowParam opt_param;
             KalmanFilterParam kf_param;

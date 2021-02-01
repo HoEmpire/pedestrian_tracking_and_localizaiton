@@ -115,8 +115,9 @@ namespace ptl
             timer img_proc_timer;
             cv_bridge::CvImagePtr cv_ptr;
             cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
+            ROS_INFO_STREAM("Data preprocess takes: " << img_proc_timer.toc() * 1000 << " ms");
             update_bbox_by_tracker(cv_ptr->image, cv_ptr->header.stamp);
-            ROS_INFO_STREAM("optical flow tracking takes" << img_proc_timer.toc() * 1000 << " ms");
+            ROS_INFO_STREAM("optical flow tracking takes: " << img_proc_timer.toc() * 1000 << " ms");
             ROS_INFO("******Out of Tracker Callback******");
             std::cout << std::endl;
         }
@@ -128,13 +129,14 @@ namespace ptl
             cv_bridge::CvImagePtr cv_ptr;
             cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
             update_bbox_by_tracker(cv_ptr->image, cv_ptr->header.stamp);
-            ROS_INFO_STREAM("optical flow tracking takes" << img_proc_timer.toc() * 1000 << " ms");
+            ROS_INFO_STREAM("optical flow tracking takes: " << img_proc_timer.toc() * 1000 << " ms");
             ROS_INFO("******Out of Tracker Callback******");
             std::cout << std::endl;
         }
 
         void TrackerInterface::lidar_tracker_callback(const sensor_msgs::PointCloud2ConstPtr &msg_pc)
         {
+            ROS_INFO_STREAM("******Into Localization Callback******");
             timer efficency_timer;
             //get tf of the current timestamp
             get_tf();
@@ -143,6 +145,8 @@ namespace ptl
             if (local_objects_list.empty())
             {
                 update_tracker_pos_marker_visualization();
+                ROS_INFO_STREAM("******Out of Localization Callback******");
+                std::cout << std::endl;
                 return;
             }
 
@@ -164,6 +168,8 @@ namespace ptl
             //update visualization
             update_tracker_pos_marker_visualization();
             ROS_INFO_STREAM("In track_and_locate_callback: point cloud processing takes " << efficency_timer.toc());
+            ROS_INFO_STREAM("******Out of Localization Callback******");
+            std::cout << std::endl;
         }
 
         void TrackerInterface::reid_callback(const ptl_msgs::ReidInfo &msg)
@@ -197,18 +203,7 @@ namespace ptl
             GPARAM(n, "/local_database/blur_detection_threshold", blur_detection_threshold);
             GPARAM(n, "/local_database/record_interval", record_interval);
             GPARAM(n, "/local_database/batch_num_min", batch_num_min);
-
-            //kcf
-            GPARAM(n, "/kcf/tracker_success_threshold", tracker_param.tracker_success_threshold);
-            GPARAM(n, "/kcf/interp_factor", tracker_param.interp_factor);
-            GPARAM(n, "/kcf/sigma", tracker_param.sigma);
-            GPARAM(n, "/kcf/lambda", tracker_param.lambda);
-            GPARAM(n, "/kcf/cell_size", tracker_param.cell_size);
-            GPARAM(n, "/kcf/padding", tracker_param.padding);
-            GPARAM(n, "/kcf/output_sigma_factor", tracker_param.output_sigma_factor);
-            GPARAM(n, "/kcf/template_size", tracker_param.template_size);
-            GPARAM(n, "/kcf/scale_step", tracker_param.scale_step);
-            GPARAM(n, "/kcf/scale_weight", tracker_param.scale_weight);
+            GPARAM(n, "/local_database/feature_smooth_ratio", feature_smooth_ratio);
 
             //point_cloud_processor
             GPARAM(n, "/pc_processor/resample_size", pcp_param.resample_size);
@@ -240,7 +235,7 @@ namespace ptl
             GPARAM(n, "/kalman_filter/r_f", kf_param.r_f);
             GPARAM(n, "/kalman_filter/r_tx", kf_param.r_tx);
             GPARAM(n, "/kalman_filter/r_ty", kf_param.r_ty);
-            GPARAM(n, "/kalman_filter/residual_threshold", kf_param.residual_threshold);
+            GPARAM(n, "/kalman_filter/residual_threshold", kf_param.residual_threshold); //TODO better usage of residual
 
             GPARAM(n, "/kalman_filter_3d/q_factor", kf3d_param.Q_factor);
             GPARAM(n, "/kalman_filter_3d/r_factor", kf3d_param.R_factor);
@@ -248,6 +243,21 @@ namespace ptl
             GPARAM(n, "/kalman_filter_3d/start_predict_only_timeout", kf3d_param.start_predict_only_timeout);
             GPARAM(n, "/kalman_filter_3d/stop_track_timeout", kf3d_param.stop_track_timeout);
             GPARAM(n, "/kalman_filter_3d/outlier_threshold", kf3d_param.outlier_threshold);
+
+            //optical tracker
+            GPARAM(n, "/optical_flow/min_keypoints_to_track", opt_param.min_keypoints_to_track);
+            GPARAM(n, "/optical_flow/keypoints_num_factor_area", opt_param.keypoints_num_factor_area);
+            GPARAM(n, "/optical_flow/corner_detector_max_num", opt_param.corner_detector_max_num);
+            GPARAM(n, "/optical_flow/corner_detector_quality_level", opt_param.corner_detector_quality_level);
+            GPARAM(n, "/optical_flow/corner_detector_min_distance", opt_param.corner_detector_min_distance);
+            GPARAM(n, "/optical_flow/corner_detector_block_size", opt_param.corner_detector_block_size);
+            GPARAM(n, "/optical_flow/corner_detector_use_harris", opt_param.corner_detector_use_harris);
+            GPARAM(n, "/optical_flow/corner_detector_k", opt_param.corner_detector_k);
+            GPARAM(n, "/optical_flow/min_keypoints_to_cal_H_mat", opt_param.min_keypoints_to_cal_H_mat);
+            GPARAM(n, "/optical_flow/min_keypoints_for_motion_estimation", opt_param.min_keypoints_for_motion_estimation);
+            GPARAM(n, "/optical_flow/min_pixel_dis_square_for_scene_point", opt_param.min_pixel_dis_square_for_scene_point);
+            GPARAM(n, "/optical_flow/use_resize", opt_param.use_resize);
+            GPARAM(n, "/optical_flow/resize_factor", opt_param.resize_factor);
         }
 
         bool TrackerInterface::update_local_database(LocalObject &local_object, const cv::Mat &img_block)
@@ -291,7 +301,7 @@ namespace ptl
 
                 // get the point cloud that might belong to this trackign object by reproject the point cloud to the image frame
                 cv::Rect2d bbox_now = lo.bbox_of_lidar_time(ros_pc_time);
-                std::cout << "bbox_now: " << bbox_now << std::endl;
+                // std::cout << "bbox_now: " << bbox_now << std::endl;
                 pcl::PointCloud<pcl::PointXYZI> pc_seg = point_cloud_segementation(pc, bbox_now);
 
                 if (pc_seg.empty())
@@ -437,12 +447,12 @@ namespace ptl
             // update each tracking object in tracking list by kalman filter
             for (auto &lo : local_objects_list)
             {
-                std::cout << lo.bbox << std::endl;
-                std::cout << update_time.toSec() << std::endl;
-                std::cout << lo.bbox_last_update_time.toSec() << std::endl;
+                // std::cout << lo.bbox << std::endl;
+                // std::cout << update_time.toSec() << std::endl;
+                // std::cout << lo.bbox_last_update_time.toSec() << std::endl;
                 lo.track_bbox_by_optical_flow(update_time);
                 bbox_rect(block_max);
-                std::cout << lo.bbox << std::endl;
+                // std::cout << lo.bbox << std::endl;
                 //update database
                 if (lo.is_track_succeed & update_database)
                 {
@@ -589,7 +599,7 @@ namespace ptl
                     //this detected object is a new object
                     ROS_INFO_STREAM("Adding Tracking Object with ID:" << local_id_not_assigned);
                     LocalObject new_object(local_id_not_assigned, bboxes[i], features[i],
-                                           tracker_param, kf_param, kf3d_param, update_time);
+                                           kf_param, kf3d_param, update_time);
                     local_id_not_assigned++;
                     //update database
                     update_local_database(new_object, img(new_object.bbox));
@@ -603,6 +613,7 @@ namespace ptl
 
                     local_objects_list[matched_id].track_bbox_by_detector(bboxes[i], update_time);
                     local_objects_list[matched_id].features.push_back(features[i]);
+                    local_objects_list[matched_id].update_feat(features[i], feature_smooth_ratio);
 
                     //update database
                     //TODO this part can be removed later
@@ -628,10 +639,10 @@ namespace ptl
         {
             for (auto &lo : local_objects_list)
             {
-                std::cout << lo.bbox << std::endl;
-                std::cout << bbox_max << std::endl;
+                // std::cout << lo.bbox << std::endl;
+                // std::cout << bbox_max << std::endl;
                 lo.bbox = lo.bbox & bbox_max;
-                std::cout << lo.bbox << std::endl;
+                // std::cout << lo.bbox << std::endl;
             }
         }
     } // namespace tracker

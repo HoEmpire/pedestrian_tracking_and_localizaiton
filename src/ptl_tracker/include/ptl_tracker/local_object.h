@@ -20,8 +20,8 @@ namespace ptl
         {
         public:
             LocalObject(const int id_init, const cv::Rect2d &bbox_init, const Eigen::VectorXf &feat,
-                        const TrackerParam &track_param_init, const KalmanFilterParam &kf_param_init,
-                        const KalmanFilter3dParam &kf3d_param_init, const ros::Time &time_now);
+                        const KalmanFilterParam &kf_param_init, const KalmanFilter3dParam &kf3d_param_init,
+                        const ros::Time &time_now);
 
             //update bbox by optical flow
             void track_bbox_by_optical_flow(const ros::Time &time_now);
@@ -37,6 +37,8 @@ namespace ptl
 
             cv::Rect2d bbox_of_lidar_time(const ros::Time &time_now);
 
+            void update_feat(const Eigen::VectorXf &feature_new, float smooth_ratio = 0.7);
+
             int id;
             bool is_opt_enable = true;
             cv::Rect2d bbox;
@@ -48,6 +50,7 @@ namespace ptl
             bool is_track_succeed;
             std::vector<cv::Mat> img_blocks;
             std::vector<Eigen::VectorXf> features;
+            Eigen::VectorXf features_now;
             geometry_msgs::Point position;
             ros::Time bbox_last_update_time;
             ros::Time ros_time_pc_last;
@@ -60,7 +63,6 @@ namespace ptl
             cv::Rect2d bbox_measurement;
 
         private:
-            TrackerParam tracker_param;
             KalmanFilter *kf;
             KalmanFilter3d *kf_3d;
         };
