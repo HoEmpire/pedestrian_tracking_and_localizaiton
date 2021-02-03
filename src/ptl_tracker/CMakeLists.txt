@@ -32,11 +32,9 @@ include_directories(
     ${catkin_INCLUDE_DIRS}
     ${EIGEN3_INCLUDE_DIRS}
     ${PCL_INCLUDE_DIRS}
-    "/usr/local/include/opentracker" 
 )
-find_library(OpenTracker_LIBS libopentracker.so /usr/local/lib)
 add_library(tracker_lib src/local_object.cpp src/tracker.cpp src/kalman_filter.cpp src/kalman_filter_3d.cpp src/optical_flow.cpp)
-target_link_libraries(tracker_lib ${OpenTracker_LIBS} ${OpenCV_LIBS} ${catkin_LIBRARIES}) 
+target_link_libraries(tracker_lib ${OpenCV_LIBS} ${catkin_LIBRARIES}) 
 
 add_library(pcp_lib src/point_cloud_processor.cpp)
 
