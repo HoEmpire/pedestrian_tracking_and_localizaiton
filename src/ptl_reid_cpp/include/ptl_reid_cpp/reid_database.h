@@ -1,0 +1,96 @@
+#include <geometry_msgs/Point.h>
+#include <opencv/cv.h>
+#include <faiss/IndexFlat.h>
+#include <faiss/IndexIVFFlat.h>
+
+namespace ptl
+{
+    namespace reid
+    {
+
+        struct DataBaseParam
+        {
+            float similarity_test_threshold = 150.0;
+            float same_id_threshold = 350.0;
+            float batch_ratio = 0.55;
+            float max_feat_num_one_object = 50;
+
+            // if the total feature is larger than this, use Inverted file in feature database to increase search efficency
+            int use_inverted_file_db_thres = 2500;
+            int feat_dimension = 2048;
+            int find_first_k = 2;
+            int nlist_ratio = 50;
+        };
+
+        class ObjectType
+        {
+
+        public:
+            ObjectType(const int id_init, const cv::Mat &img, const geometry_msgs::Point &pos_init)
+                : id(id_init), example_image(img), pos(pos_init), feat_dimension(2048) {}
+
+            ObjectType(const int id_init, const cv::Mat &img, const geometry_msgs::Point &pos_init,
+                       const int feat_dim)
+                : id(id_init), example_image(img), pos(pos_init), feat_dimension(feat_dim) {}
+
+            void update_pos(const geometry_msgs::Point &pos_new)
+            {
+                pos = pos_new;
+            }
+
+            void update_db(const std::vector<float> &feat)
+            {
+                db.add(feat.size() / feat_dimension, feat.data());
+                feat_num++;
+            }
+
+        private:
+            int id = 0;
+            int feat_num = 0;
+            cv::Mat example_image;
+            geometry_msgs::Point pos;
+            const int feat_dimension;
+            faiss::IndexFlatIP db = faiss::IndexFlatIP(feat_dimension);
+        };
+
+        class ReidDatabase
+        {
+        public:
+            ReidDatabase() = default;
+            ReidDatabase(const DataBaseParam &db_param) : db_param_(db_param) {}
+
+            //query a set of image features and update the database
+            void query_and_update(const std::vector<float> &feat_query, const cv::Mat &example_image, const geometry_msgs::Point &position);
+
+        private:
+            //query a set of features
+            int query(const std::vector<float> &feat_query, bool need_report = true);
+
+            //report the query result
+            void report_query(const std::vector<faiss::Index::idx_t> &index, const std::vector<float> &distance);
+
+            //update the database
+            void update(const std::vector<float> &feat_query, int id, const cv::Mat &example_image, const geometry_msgs::Point &position);
+
+            //update the object datbase
+            void update_object_db(const std::vector<float> &feat_query, std::vector<float> &feat_update, const int id,
+                                  const cv::Mat &example_image, const geometry_msgs::Point &position);
+
+            //update the feature datbase
+            void update_feature_db(const std::vector<float> &feat_update, const int id);
+
+            int max_id_ = 0;
+            DataBaseParam db_param_;
+            std::vector<ObjectType> object_db;
+            std::vector<int> feat_and_object_id_match_list; // using the feature id to find the object id
+            bool is_using_db_small = true;
+            faiss::IndexFlatIP db_small = faiss::IndexFlatIP(db_param_.feat_dimension);
+            faiss::IndexIVFFlat *db_large;
+
+            faiss::Index::idx_t num_feat = 0;
+            faiss::Index::idx_t num_feat_when_building_db = 0;
+            std::vector<float> feat_all;
+        };
+
+    } // namespace reid
+} // namespace ptl
