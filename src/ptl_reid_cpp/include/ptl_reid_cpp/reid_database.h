@@ -16,10 +16,11 @@ namespace ptl
             float max_feat_num_one_object = 50;
 
             // if the total feature is larger than this, use Inverted file in feature database to increase search efficency
-            int use_inverted_file_db_thres = 2500;
+            int use_inverted_file_db_threshold = 2500;
             int feat_dimension = 2048;
             int find_first_k = 2;
             int nlist_ratio = 50;
+            int sim_check_start_threshold = 5;
         };
 
         class ObjectType
@@ -38,19 +39,14 @@ namespace ptl
                 pos = pos_new;
             }
 
-            void update_db(const std::vector<float> &feat)
-            {
-                db.add(feat.size() / feat_dimension, feat.data());
-                feat_num++;
-            }
+            faiss::IndexFlatIP db = faiss::IndexFlatIP(feat_dimension);
+            int feat_num = 0;
+            int id = 0;
 
         private:
-            int id = 0;
-            int feat_num = 0;
             cv::Mat example_image;
             geometry_msgs::Point pos;
             const int feat_dimension;
-            faiss::IndexFlatIP db = faiss::IndexFlatIP(feat_dimension);
         };
 
         class ReidDatabase
@@ -79,10 +75,12 @@ namespace ptl
             //update the feature datbase
             void update_feature_db(const std::vector<float> &feat_update, const int id);
 
-            int max_id_ = 0;
+            void report_object_db();
+
+            int max_id = 0;
             DataBaseParam db_param_;
             std::vector<ObjectType> object_db;
-            std::vector<int> feat_and_object_id_match_list; // using the feature id to find the object id
+
             bool is_using_db_small = true;
             faiss::IndexFlatIP db_small = faiss::IndexFlatIP(db_param_.feat_dimension);
             faiss::IndexIVFFlat *db_large;
@@ -90,6 +88,7 @@ namespace ptl
             faiss::Index::idx_t num_feat = 0;
             faiss::Index::idx_t num_feat_when_building_db = 0;
             std::vector<float> feat_all;
+            std::vector<faiss::Index::idx_t> id_all;
         };
 
     } // namespace reid

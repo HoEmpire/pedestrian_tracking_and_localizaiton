@@ -9,13 +9,14 @@ namespace ptl
         {
             int id = query(feat_query);
             update(feat_query, id, example_image, position);
+            report_object_db();
         }
 
         int ReidDatabase::query(const std::vector<float> &feat_query, bool need_report)
         {
             if (object_db.empty())
             {
-                return -1;
+                return 0;
             }
             else
             {
@@ -94,8 +95,48 @@ namespace ptl
         void ReidDatabase::update_object_db(const std::vector<float> &feat_query, std::vector<float> &feat_update, const int id,
                                             const cv::Mat &example_image, const geometry_msgs::Point &position)
         {
+            feat_update.clear();
             for (int i = 0; i < feat_query.size() / db_param_.feat_dimension; ++i)
             {
+                std::vector<float> feat(feat_query.begin() + db_param_.feat_dimension * i,
+                                        feat_query.begin() + db_param_.feat_dimension * (i + 1));
+                //update position first
+                if (i == 0 && id == max_id)
+                {
+                    //create new object first
+                    object_db.emplace_back(max_id, example_image, position);
+                    max_id++;
+                }
+                else
+                {
+                    //update position
+                    object_db[id].update_pos(position);
+                }
+
+                //update object local feature database
+                if (object_db[id].feat_num < db_param_.sim_check_start_threshold)
+                {
+                    object_db[id].db.add(1, feat.data());
+                    object_db[id].feat_num++;
+                    feat_update.insert(feat_update.end(), feat.begin(), feat.end());
+                }
+                else
+                {
+                    //start similiarity check
+                    //checking the similiarity of local database, if the similarity is too high,
+                    //we won't add this feature to database to ensure variety
+                    std::vector<idx_t> index(1);
+                    std::vector<float> distance(1);
+                    object_db[id].db.search(1, feat.data(), 1, distance.data(), index.data());
+
+                    //pass the sim check， then we add it to the database
+                    if (distance[0] > db_param_.sim_check_start_threshold)
+                    {
+                        object_db[id].db.add(1, feat.data());
+                        object_db[id].feat_num++;
+                        feat_update.insert(feat_update.end(), feat.begin(), feat.end());
+                    }
+                }
             }
         }
 
@@ -103,21 +144,25 @@ namespace ptl
         {
             //save the features
             feat_all.insert(feat_all.end(), feat_update.begin(), feat_update.end());
+            std::vector<idx_t> ids(feat_update.size() / db_param_.feat_dimension, id);
+            id_all.insert(id_all.end(), ids.begin(), ids.end());
             num_feat += feat_update.size() / db_param_.feat_dimension;
 
             // database mangement strategy
             // small feature database use Brute-force search
             // large feature database use Inverted file to store teh database
             // when the number of features became two times of the number when we build the inverted file, we rebuild the inverted file
-            std::vector<idx_t> ids(feat_update.size() / db_param_.feat_dimension, id);
+
             if (is_using_db_small)
             {
-                if (num_feat > db_param_.use_inverted_file_db_thres)
+                if (num_feat > db_param_.use_inverted_file_db_threshold)
                 {
                     //build a new larger database
                     db_large = new faiss::IndexIVFFlat(&db_small, db_param_.feat_dimension, size_t(num_feat / db_param_.nlist_ratio), faiss::METRIC_INNER_PRODUCT);
                     db_large->train(num_feat, feat_all.data()); //TODO this step might perform asychronously
-                    db_large->add(num_feat, feat_all.data());
+                    db_large->add_with_ids(num_feat, feat_all.data(), id_all.data());
+                    is_using_db_small = false;
+                    num_feat_when_building_db = num_feat;
                 }
                 else
                 {
@@ -126,15 +171,30 @@ namespace ptl
             }
             else
             {
+                //rebuild a new larger database when the current inverted file become twice the size when it was built to ensure
+                //efficiency in searching
                 if (num_feat / num_feat_when_building_db > 2)
                 {
-                    //rebuild a new larger database when the current inverted file become twice the size when it was built
                     db_large = new faiss::IndexIVFFlat(&db_small, db_param_.feat_dimension, size_t(num_feat / db_param_.nlist_ratio), faiss::METRIC_INNER_PRODUCT);
                     db_large->train(num_feat, feat_all.data()); //TODO this step might perform asychronously
-                    db_large->add(num_feat, feat_all.data());
+                    db_large->add_with_ids(num_feat, feat_all.data(), id_all.data());
+                    num_feat_when_building_db = num_feat;
                 }
-                db_large->add_with_ids(feat_update.size() / db_param_.feat_dimension, feat_update.data(), ids.data());
+                else
+                {
+                    db_large->add_with_ids(feat_update.size() / db_param_.feat_dimension, feat_update.data(), ids.data());
+                }
             }
+        }
+
+        void ReidDatabase::report_object_db()
+        {
+            std::cout << "*****Reid Database Report*****" << std::endl;
+            for (const auto ob : object_db)
+            {
+                std::cout << "id: " << ob.id << " | db num: " << ob.feat_num << std::endl;
+            }
+            std::cout << "***Reid Database Report Done***" << std::endl;
         }
     } // namespace reid
 } // namespace ptl
