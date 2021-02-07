@@ -40,17 +40,23 @@ namespace ptl
         class TrackerInterface
         {
         public:
-            TrackerInterface(ros::NodeHandle *n);
+            TrackerInterface() = default;
+            TrackerInterface(const ros::NodeHandle &n, bool register_subscriber = true);
+
+            //udpate bbox by optical tracker and return the dead tracker
+            std::vector<LocalObject> update_bbox_by_tracker(const cv::Mat &img, const ros::Time &update_time);
+            void update_bbox_by_detector(const cv::Mat &img,
+                                         const std::vector<cv::Rect2d> &bboxes,
+                                         const std::vector<float> feature,
+                                         const ros::Time &update_time);
+
+            void lidar_tracker_callback(const sensor_msgs::PointCloud2ConstPtr &msg_pc);
 
         private:
             void detector_result_callback(const ptl_msgs::ImageBlockPtr &msg);
 
             void image_tracker_callback(const sensor_msgs::ImageConstPtr &msg);
             void image_tracker_callback_compressed_img(const sensor_msgs::CompressedImageConstPtr &msg);
-
-            void lidar_tracker_callback(const sensor_msgs::PointCloud2ConstPtr &msg_pc);
-
-            void update_bbox_by_tracker(cv::Mat &img, const ros::Time &update_time);
 
             void reid_callback(const ptl_msgs::ReidInfo &msg);
             void load_config(ros::NodeHandle *n);
@@ -64,7 +70,7 @@ namespace ptl
 
             //bbox update by optical flow tracker
             void track_bbox_by_optical_flow(const cv::Mat &img, const ros::Time &update_time, bool update_database);
-            void remove_dead_trackers();
+            std::vector<LocalObject> remove_dead_trackers();
             void report_local_object();
             void visualize_tracking(cv::Mat &img);
 
@@ -79,6 +85,10 @@ namespace ptl
                                                        const ros::Time &update_time,
                                                        const std::vector<AssociationVector> &all_detected_bbox_ass_vec);
 
+            void manage_local_objects_list_by_reid_detector(const std::vector<cv::Rect2d> &bboxes, const cv::Rect2d &block_max,
+                                                            const std::vector<Eigen::VectorXf> &feat_eigen, const std::vector<float> &feat_vector,
+                                                            const cv::Mat &img, const ros::Time &update_time, const std::vector<AssociationVector> &all_detected_bbox_ass_vec);
+
             std::vector<cv::Rect2d> bbox_ros_to_opencv(const std::vector<std_msgs::UInt16MultiArray> &bbox_ros);
             void bbox_rect(const cv::Rect2d &bbox_max);
 
@@ -86,7 +96,7 @@ namespace ptl
             std::vector<LocalObject> local_objects_list;
 
         private:
-            ros::NodeHandle *nh_;
+            ros::NodeHandle nh_;
             ros::Publisher m_track_vis_pub, m_track_to_reid_pub, m_track_marker_pub;
             ros::Publisher m_pc_filtered_debug, m_pc_cluster_debug;
             ros::Subscriber m_detector_sub, m_image_sub, m_reid_sub, m_lidar_sub;

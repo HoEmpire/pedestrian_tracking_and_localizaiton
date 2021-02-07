@@ -23,7 +23,7 @@ namespace ptl
                 detector.Init(config_cam);
             }
 
-            void detect_pedestrain(cv::Mat image)
+            void detect_pedestrain(const cv::Mat &image)
             {
                 results.clear();
                 detector.Detect(image, results);

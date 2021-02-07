@@ -3,19 +3,18 @@ cmake_minimum_required(VERSION 3.5)
 project(ptl_reid_cpp)
 
 set(CMAKE_BUILD_TYPE "Release")
-set(CMAKE_CXX_FLAGS "-std=c++11 ${CMAKE_CXX_FLAGS} -O3")
+set(CMAKE_CXX_FLAGS "-std=c++11 ${CMAKE_CXX_FLAGS} -O3 -pthread")
 
 find_package(catkin 
     REQUIRED 
     COMPONENTS
     roscpp
-    cv_bridge
 )
 
 catkin_package(
     INCLUDE_DIRS include
     LIBRARIES ${PROJECT_NAME}
-    CATKIN_DEPENDS roscpp
+    CATKIN_DEPENDS roscpp ptl_detector
     DEPENDS)
 
 find_package(OpenCV 4 REQUIRED)
@@ -31,7 +30,7 @@ include_directories(
     ${CUDA_INCLUDE_DIRS} 
     ${TensorRT_INCLUDE_DIRS}
 )
-add_library(reid_lib src/reid_database.cpp src/reid_inference.cpp)
+add_library(reid_lib src/reid_database.cpp src/reid_inference.cpp src/reid.cpp)
 target_link_libraries(reid_lib ${OpenCV_LIBS} ${catkin_LIBRARIES} ${CUDA_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} ${TensorRT_LIBRARIES}) 
 
 # add_library(pcp_lib src/point_cloud_processor.cpp)

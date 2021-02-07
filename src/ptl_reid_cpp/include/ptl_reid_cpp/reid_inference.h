@@ -13,51 +13,52 @@
 #include <opencv2/cudaarithm.hpp>
 #include <algorithm>
 #include <numeric>
-// calculate size of tensor
-size_t getSizeByDim(const nvinfer1::Dims &dims)
-{
-    size_t size = 1;
-    for (size_t i = 1; i < dims.nbDims; ++i)
-    {
-        size *= dims.d[i];
-    }
-    return size;
-}
-
-class Logger : public nvinfer1::ILogger
-{
-public:
-    void log(Severity severity, const char *msg) override
-    {
-        // remove this 'if' if you need more logged info
-        if ((severity == Severity::kERROR) || (severity == Severity::kINTERNAL_ERROR))
-        {
-            std::cout << msg << "\n";
-        }
-    }
-} gLogger;
-
-// destroy TensorRT objects if something goes wrong
-struct TRTDestroy
-{
-    template <class T>
-    void operator()(T *obj) const
-    {
-        if (obj)
-        {
-            obj->destroy();
-        }
-    }
-};
-
-template <class T>
-using TRTUniquePtr = std::unique_ptr<T, TRTDestroy>;
-
+#include <ros/package.h>
 namespace ptl
 {
     namespace reid
     {
-        struct ReidParam
+        // calculate size of tensor
+        size_t getSizeByDim(const nvinfer1::Dims &dims)
+        {
+            size_t size = 1;
+            for (size_t i = 1; i < dims.nbDims; ++i)
+            {
+                size *= dims.d[i];
+            }
+            return size;
+        }
+
+        class Logger : public nvinfer1::ILogger
+        {
+        public:
+            void log(Severity severity, const char *msg) override
+            {
+                // remove this 'if' if you need more logged info
+                if ((severity == Severity::kERROR) || (severity == Severity::kINTERNAL_ERROR))
+                {
+                    std::cout << msg << "\n";
+                }
+            }
+        } gLogger;
+
+        // destroy TensorRT objects if something goes wrong
+        struct TRTDestroy
+        {
+            template <class T>
+            void operator()(T *obj) const
+            {
+                if (obj)
+                {
+                    obj->destroy();
+                }
+            }
+        };
+
+        template <class T>
+        using TRTUniquePtr = std::unique_ptr<T, TRTDestroy>;
+
+        struct InferenceParam
         {
             int inference_real_time_batch_size = 4;
             int inference_offline_batch_size = 8;
@@ -69,7 +70,7 @@ namespace ptl
         {
         public:
             ReidInference() = default;
-            ReidInference(ReidParam reid_param) : reid_param_(reid_param) {}
+            ReidInference(InferenceParam reid_param) : reid_param_(reid_param) {}
 
             //initialize the engine
             void init();
@@ -85,8 +86,11 @@ namespace ptl
             bool parse_onnx_model(const std::string &model_path);
             void save_engine(const std::string &engine_path);
 
-            void data_preprocesss(const cv::Mat &image, const std::vector<cv::Rect2d> &bboxes, float *gpu_input);
-            void data_preprocesss(const std::vector<cv::Mat> &images, float *gpu_input);
+            void data_preprocesss(const cv::Mat &image, std::vector<cv::Rect2d>::const_iterator bboxes_begin,
+                                  std::vector<cv::Rect2d>::const_iterator bboxes_end, float *gpu_input);
+            void data_preprocesss(std::vector<cv::Mat>::const_iterator image_begin,
+                                  std::vector<cv::Mat>::const_iterator image_end,
+                                  float *gpu_input);
 
             void inference(std::vector<void *> &buffers, bool is_real_time);
 
@@ -96,7 +100,7 @@ namespace ptl
             TRTUniquePtr<nvinfer1::IExecutionContext> context_real_time{nullptr};
             TRTUniquePtr<nvinfer1::IExecutionContext> context_offline{nullptr};
 
-            ReidParam reid_param_;
+            InferenceParam reid_param_;
         };
     } // namespace reid
 } // namespace ptl

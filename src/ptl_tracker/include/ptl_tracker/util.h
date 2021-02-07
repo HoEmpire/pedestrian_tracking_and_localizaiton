@@ -48,6 +48,15 @@ inline Eigen::VectorXf feature_ros_to_eigen(std_msgs::Float32MultiArray feats_ro
     return feats_eigen;
 }
 
+inline std::vector<Eigen::VectorXf> feature_vector_to_eigen(std::vector<float> feats_vec, int feat_dimension = 2048)
+{
+
+    std::vector<Eigen::VectorXf> feats_eigen;
+    for (int i = 0; i < feats_vec.size() / feat_dimension; i++)
+        feats_eigen.push_back(Eigen::Map<Eigen::VectorXf, Eigen::Unaligned>(feats_vec.data() + i * feat_dimension, feat_dimension));
+    return feats_eigen;
+}
+
 inline void print_bbox(cv::Rect2d bbox)
 {
     ROS_INFO_STREAM("Bbox Info: " << bbox.x << ", " << bbox.y << ", "

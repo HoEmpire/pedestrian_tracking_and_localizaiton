@@ -1,5 +1,4 @@
 #include "ptl_reid_cpp/reid_inference.h"
-#include <ros/package.h>
 
 namespace ptl
 {
@@ -7,9 +6,9 @@ namespace ptl
     {
         void ReidInference::init()
         {
-            std::string root_path = ros::package::getPath("roslib");
-            std::string engine_path = root_path + "/" + reid_param_.engine_file_name;
-            std::string onnx_path = root_path + "/" + reid_param_.onnx_file_name;
+            std::string root_path = ros::package::getPath("ptl_reid_cpp");
+            std::string engine_path = root_path + "/asset/" + reid_param_.engine_file_name;
+            std::string onnx_path = root_path + "/asset/" + reid_param_.onnx_file_name;
             if (!load_engine(engine_path))
             {
                 if (!parse_onnx_model(onnx_path))
@@ -28,23 +27,72 @@ namespace ptl
             cudaMalloc(&buffers[0], getSizeByDim(engine->getBindingDimensions(0)) * reid_param_.inference_real_time_batch_size * sizeof(float));
             cudaMalloc(&buffers[1], getSizeByDim(engine->getBindingDimensions(1)) * reid_param_.inference_real_time_batch_size * sizeof(float));
 
-            data_preprocesss(image, bboxes, (float *)buffers[0]);
-            inference(buffers, true);
             std::vector<float> result;
-            result_postprocess((float *)buffers[1], result);
+            for (int i = 0; i < (bboxes.size() - 1) / reid_param_.inference_real_time_batch_size + 1; i++)
+            {
+                if ((i + 1) * reid_param_.inference_real_time_batch_size > bboxes.size())
+                {
+                    //deal with last batch
+                    data_preprocesss(image, bboxes.begin() + i * reid_param_.inference_real_time_batch_size,
+                                     bboxes.end(), (float *)buffers[0]);
+                }
+                else
+                {
+                    data_preprocesss(image, bboxes.begin() + i * reid_param_.inference_real_time_batch_size,
+                                     bboxes.begin() + (i + 1) * reid_param_.inference_real_time_batch_size, (float *)buffers[0]);
+                }
+
+                inference(buffers, true);
+                std::vector<float> result_tmp;
+                result_postprocess((float *)buffers[1], result_tmp);
+
+                if ((i + 1) * reid_param_.inference_real_time_batch_size > bboxes.size())
+                {
+                    //deal with last batch
+                    result.insert(result.end(), result_tmp.begin(), result_tmp.begin() + bboxes.size() % reid_param_.inference_real_time_batch_size);
+                }
+                else
+                {
+                    result.insert(result.end(), result_tmp.begin(), result_tmp.end());
+                }
+            }
+
             return result;
         }
 
         std::vector<float> ReidInference::do_inference_offline(const std::vector<cv::Mat> &images)
         {
             std::vector<void *> buffers(engine->getNbBindings()); // buffers for input and output data
-            cudaMalloc(&buffers[0], getSizeByDim(engine->getBindingDimensions(0)) * reid_param_.inference_real_time_batch_size * sizeof(float));
-            cudaMalloc(&buffers[1], getSizeByDim(engine->getBindingDimensions(1)) * reid_param_.inference_real_time_batch_size * sizeof(float));
+            cudaMalloc(&buffers[0], getSizeByDim(engine->getBindingDimensions(0)) * reid_param_.inference_offline_batch_size * sizeof(float));
+            cudaMalloc(&buffers[1], getSizeByDim(engine->getBindingDimensions(1)) * reid_param_.inference_offline_batch_size * sizeof(float));
 
-            data_preprocesss(images, (float *)buffers[0]);
-            inference(buffers, false);
             std::vector<float> result;
-            result_postprocess((float *)buffers[1], result);
+            for (int i = 0; i < (images.size() - 1) / reid_param_.inference_offline_batch_size + 1; i++)
+            {
+                if ((i + 1) * reid_param_.inference_offline_batch_size > images.size())
+                {
+                    //deal with last batch
+                    data_preprocesss(images.begin() + i * reid_param_.inference_offline_batch_size, images.end(), (float *)buffers[0]);
+                }
+                else
+                {
+                    data_preprocesss(images.begin() + i * reid_param_.inference_offline_batch_size,
+                                     images.begin() + (i + 1) * reid_param_.inference_offline_batch_size, (float *)buffers[0]);
+                }
+
+                inference(buffers, false);
+                std::vector<float> result_tmp;
+                result_postprocess((float *)buffers[1], result);
+                if ((i + 1) * reid_param_.inference_offline_batch_size > images.size())
+                {
+                    //deal with last batch
+                    result.insert(result.end(), result_tmp.begin(), result_tmp.begin() + images.size() % reid_param_.inference_offline_batch_size);
+                }
+                else
+                {
+                    result.insert(result.end(), result_tmp.begin(), result_tmp.end());
+                }
+            }
             return result;
         }
 
@@ -144,7 +192,8 @@ namespace ptl
             std::cout << "Save engine successfully!" << std::endl;
         }
 
-        void ReidInference::data_preprocesss(const cv::Mat &image, const std::vector<cv::Rect2d> &bboxes, float *gpu_input)
+        void ReidInference::data_preprocesss(const cv::Mat &image, std::vector<cv::Rect2d>::const_iterator bboxes_begin,
+                                             std::vector<cv::Rect2d>::const_iterator bboxes_end, float *gpu_input)
         {
             const int input_width = 128;
             const int input_height = 256;
@@ -155,10 +204,10 @@ namespace ptl
             cv::cuda::GpuMat flt_image;
 
             int image_num = 0;
-            for (auto bbox : bboxes)
+            for (auto bbox = bboxes_begin; bbox != bboxes_end; bbox++)
             {
                 // upload image to GPU
-                gpu_frame.upload(image(bbox));
+                gpu_frame.upload(image(*bbox));
                 auto input_size = cv::Size(input_width, input_height);
                 // resize
 
@@ -183,7 +232,9 @@ namespace ptl
             }
         }
 
-        void ReidInference::data_preprocesss(const std::vector<cv::Mat> &images, float *gpu_input)
+        void ReidInference::data_preprocesss(std::vector<cv::Mat>::const_iterator image_begin,
+                                             std::vector<cv::Mat>::const_iterator image_end,
+                                             float *gpu_input)
         {
             const int input_width = 128;
             const int input_height = 256;
@@ -194,10 +245,10 @@ namespace ptl
             cv::cuda::GpuMat flt_image;
 
             int image_num = 0;
-            for (auto img : images)
+            for (auto img = image_begin; img != image_end; img++)
             {
                 // upload image to GPU
-                gpu_frame.upload(img);
+                gpu_frame.upload(*img);
                 auto input_size = cv::Size(input_width, input_height);
                 // resize
 

@@ -51,6 +51,7 @@ namespace ptl
             std::vector<cv::Mat> img_blocks;
             std::vector<Eigen::VectorXf> features;
             Eigen::VectorXf features_now;
+            std::vector<float> features_vector;
             geometry_msgs::Point position;
             ros::Time bbox_last_update_time;
             ros::Time ros_time_pc_last;

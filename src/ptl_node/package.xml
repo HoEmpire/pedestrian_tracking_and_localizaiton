@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package format="2">
-    <name>ptl_reid_cpp</name>
+    <name>ptl_node</name>
     <version>1.0.0</version>
     <description>none</description>
     <maintainer email="yxpeng@udel.edu">Yuxiang Peng</maintainer>
@@ -8,9 +8,11 @@
 
     <buildtool_depend>catkin</buildtool_depend>
     <build_depend>roscpp</build_depend>
-    <build_depend>ptl_detector</build_depend>
+    <build_depend>ptl_reid_cpp</build_depend>
+    <build_depend>ptl_tracker</build_depend>
     
     <exec_depend>roscpp</exec_depend>
-    <exec_depend>ptl_detector</exec_depend>
+    <exec_depend>ptl_reid_cpp</exec_depend>
+    <exec_depend>ptl_tracker</exec_depend>
 
 </package>
