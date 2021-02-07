@@ -4,3 +4,5 @@ test_data
 __pycache__
 task.json
 launch.json
+.onnx
+.engine

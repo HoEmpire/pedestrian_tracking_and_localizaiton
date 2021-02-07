@@ -1,3 +1,4 @@
+#pragma once
 #include <geometry_msgs/Point.h>
 #include <opencv/cv.h>
 #include <faiss/IndexFlat.h>

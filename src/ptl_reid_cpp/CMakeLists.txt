@@ -19,14 +19,20 @@ catkin_package(
     DEPENDS)
 
 find_package(OpenCV 4 REQUIRED)
+find_package(Threads)
+find_package(CUDA REQUIRED)
+find_package(TensorRT REQUIRED)
 find_library(Faiss_LIBS libfaiss.a /usr/local/lib)
 
 include_directories( 
     include
     ${catkin_INCLUDE_DIRS}
+    ${OpenCV_INCLUDE_DIRS} 
+    ${CUDA_INCLUDE_DIRS} 
+    ${TensorRT_INCLUDE_DIRS}
 )
-add_library(reid_lib src/reid_database.cpp)
-target_link_libraries(reid_lib ${OpenCV_LIBS} ${catkin_LIBRARIES}) 
+add_library(reid_lib src/reid_database.cpp src/reid_inference.cpp)
+target_link_libraries(reid_lib ${OpenCV_LIBS} ${catkin_LIBRARIES} ${CUDA_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} ${TensorRT_LIBRARIES}) 
 
 # add_library(pcp_lib src/point_cloud_processor.cpp)
 
