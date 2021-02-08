@@ -4,6 +4,17 @@ namespace ptl
 {
     namespace reid
     {
+        // calculate size of tensor
+        size_t getSizeByDim(const nvinfer1::Dims &dims)
+        {
+            size_t size = 1;
+            for (size_t i = 1; i < dims.nbDims; ++i)
+            {
+                size *= dims.d[i];
+            }
+            return size;
+        }
+
         void ReidInference::init()
         {
             std::string root_path = ros::package::getPath("ptl_reid_cpp");
@@ -23,9 +34,13 @@ namespace ptl
         std::vector<float> ReidInference::do_inference_real_time(const cv::Mat &image, const std::vector<cv::Rect2d> &bboxes)
         {
             //create buffer and allocate memory in gpu
+            std::cout << engine->getNbBindings() << std::endl;
+            std::cout << getSizeByDim(context_real_time->getBindingDimensions(0)) * reid_param_.inference_offline_batch_size << std::endl;
+            std::cout << getSizeByDim(context_real_time->getBindingDimensions(1)) * reid_param_.inference_offline_batch_size << std::endl;
+
             std::vector<void *> buffers(engine->getNbBindings()); // buffers for input and output data
-            cudaMalloc(&buffers[0], getSizeByDim(engine->getBindingDimensions(0)) * reid_param_.inference_real_time_batch_size * sizeof(float));
-            cudaMalloc(&buffers[1], getSizeByDim(engine->getBindingDimensions(1)) * reid_param_.inference_real_time_batch_size * sizeof(float));
+            cudaMalloc(&buffers[0], getSizeByDim(context_real_time->getBindingDimensions(0)) * reid_param_.inference_real_time_batch_size * sizeof(float));
+            cudaMalloc(&buffers[1], getSizeByDim(context_real_time->getBindingDimensions(1)) * reid_param_.inference_real_time_batch_size * sizeof(float));
 
             std::vector<float> result;
             for (int i = 0; i < (bboxes.size() - 1) / reid_param_.inference_real_time_batch_size + 1; i++)
@@ -43,7 +58,9 @@ namespace ptl
                 }
 
                 inference(buffers, true);
-                std::vector<float> result_tmp;
+                std::vector<float> result_tmp(getSizeByDim(context_real_time->getBindingDimensions(1)) * reid_param_.inference_real_time_batch_size);
+                std::cout << getSizeByDim(context_real_time->getBindingDimensions(1)) * reid_param_.inference_real_time_batch_size << std::endl;
+                std::cout << result_tmp.size() << std::endl;
                 result_postprocess((float *)buffers[1], result_tmp);
 
                 if ((i + 1) * reid_param_.inference_real_time_batch_size > bboxes.size())
@@ -57,32 +74,47 @@ namespace ptl
                 }
             }
 
+            //TODO Free space in here
+            //Free GPU space(or may be not)
+            for (void *buf : buffers)
+            {
+                cudaFree(buf);
+            }
+
             return result;
         }
 
         std::vector<float> ReidInference::do_inference_offline(const std::vector<cv::Mat> &images)
         {
+            std::cout << "FUCK11" << std::endl;
             std::vector<void *> buffers(engine->getNbBindings()); // buffers for input and output data
-            cudaMalloc(&buffers[0], getSizeByDim(engine->getBindingDimensions(0)) * reid_param_.inference_offline_batch_size * sizeof(float));
-            cudaMalloc(&buffers[1], getSizeByDim(engine->getBindingDimensions(1)) * reid_param_.inference_offline_batch_size * sizeof(float));
+            std::cout << engine->getNbBindings() << std::endl;
+            std::cout << getSizeByDim(context_offline->getBindingDimensions(0)) * reid_param_.inference_offline_batch_size << std::endl;
+            std::cout << getSizeByDim(context_offline->getBindingDimensions(1)) * reid_param_.inference_offline_batch_size << std::endl;
+            cudaMalloc(&buffers[2], getSizeByDim(context_offline->getBindingDimensions(0)) * reid_param_.inference_offline_batch_size * sizeof(float));
+            cudaMalloc(&buffers[3], getSizeByDim(context_offline->getBindingDimensions(1)) * reid_param_.inference_offline_batch_size * sizeof(float));
 
+            std::cout << "FUCK12" << std::endl;
             std::vector<float> result;
             for (int i = 0; i < (images.size() - 1) / reid_param_.inference_offline_batch_size + 1; i++)
             {
+                std::cout << "FUCK13" << std::endl;
                 if ((i + 1) * reid_param_.inference_offline_batch_size > images.size())
                 {
                     //deal with last batch
-                    data_preprocesss(images.begin() + i * reid_param_.inference_offline_batch_size, images.end(), (float *)buffers[0]);
+                    data_preprocesss(images.begin() + i * reid_param_.inference_offline_batch_size, images.end(), (float *)buffers[2]);
                 }
                 else
                 {
                     data_preprocesss(images.begin() + i * reid_param_.inference_offline_batch_size,
-                                     images.begin() + (i + 1) * reid_param_.inference_offline_batch_size, (float *)buffers[0]);
+                                     images.begin() + (i + 1) * reid_param_.inference_offline_batch_size, (float *)buffers[2]);
                 }
-
+                std::cout << "FUCK14" << std::endl;
                 inference(buffers, false);
-                std::vector<float> result_tmp;
-                result_postprocess((float *)buffers[1], result);
+                std::cout << "FUCK15" << std::endl;
+                std::vector<float> result_tmp(getSizeByDim(context_offline->getBindingDimensions(1)) * reid_param_.inference_offline_batch_size);
+                std::cout << "FUCK16" << std::endl;
+                result_postprocess((float *)buffers[3], result_tmp);
                 if ((i + 1) * reid_param_.inference_offline_batch_size > images.size())
                 {
                     //deal with last batch
@@ -91,6 +123,13 @@ namespace ptl
                 else
                 {
                     result.insert(result.end(), result_tmp.begin(), result_tmp.end());
+                }
+                std::cout << result.size() << std::endl;
+                //TODO Free space in here
+                //Free GPU space(or may be not)
+                for (void *buf : buffers)
+                {
+                    cudaFree(buf);
                 }
             }
             return result;
@@ -101,7 +140,7 @@ namespace ptl
             std::ifstream engine_file(engine_path, std::ios::binary);
             if (!engine_file)
             {
-                std::cout << "Error loading engine file: " << engine_path << std::endl;
+                std::cout << "Error loading reid engine file: " << engine_path << std::endl;
                 return false;
             }
 
@@ -113,7 +152,7 @@ namespace ptl
             engine_file.read(engine_data.data(), fsize);
             if (!engine_file)
             {
-                std::cout << "Error loading engine file: " << engine_path << std::endl;
+                std::cout << "Error loading reid engine file: " << engine_path << std::endl;
                 return false;
             }
             TRTUniquePtr<nvinfer1::IRuntime> runtime{nvinfer1::createInferRuntime(gLogger)};
@@ -127,7 +166,7 @@ namespace ptl
             context_offline.reset(engine->createExecutionContext());
             context_offline->setOptimizationProfileAsync(1, 0);
             context_offline->setBindingDimensions(0, nvinfer1::Dims4(reid_param_.inference_offline_batch_size, 3, 256, 128));
-            std::cout << "Load engine file successfully!" << std::endl;
+            std::cout << "Load reid engine file successfully!" << std::endl;
 
             return true;
         }
@@ -144,7 +183,7 @@ namespace ptl
             if (!parser->parseFromFile(model_path.c_str(), static_cast<int>(nvinfer1::ILogger::Severity::kINFO)))
             {
                 std::cerr << "ERROR: could not parse the model." << std::endl;
-                return;
+                return false;
             }
 
             // allow TensorRT to use up to 512Mb of GPU memory for tactic selection.
@@ -171,6 +210,13 @@ namespace ptl
             engine.reset(builder->buildEngineWithConfig(*network, *config));
             context_real_time.reset(engine->createExecutionContext());
             context_offline.reset(engine->createExecutionContext());
+
+            context_real_time->setOptimizationProfileAsync(0, 0);
+            context_real_time->setBindingDimensions(0, nvinfer1::Dims4(reid_param_.inference_real_time_batch_size, 3, 256, 128));
+
+            context_offline->setOptimizationProfileAsync(1, 0);
+            context_offline->setBindingDimensions(0, nvinfer1::Dims4(reid_param_.inference_offline_batch_size, 3, 256, 128));
+            return true;
         }
 
         void ReidInference::save_engine(const std::string &engine_path)
@@ -189,7 +235,7 @@ namespace ptl
 
             engine_file.write(static_cast<char *>(serialized_engine->data()), serialized_engine->size());
             engine_file.close();
-            std::cout << "Save engine successfully!" << std::endl;
+            std::cout << "Save reid engine successfully!" << std::endl;
         }
 
         void ReidInference::data_preprocesss(const cv::Mat &image, std::vector<cv::Rect2d>::const_iterator bboxes_begin,
@@ -288,14 +334,6 @@ namespace ptl
         //TODO unify c array and c++ vector
         void ReidInference::result_postprocess(float *gpu_output, std::vector<float> &cpu_output)
         {
-            cudaMemcpyAsync(cpu_output.data(), gpu_output, cpu_output.size() * sizeof(float), cudaMemcpyDeviceToHost);
-        }
-
-        // post-processing stage ----------------------------------------------------------------------------------------------
-        void postprocessResults(float *gpu_output, const nvinfer1::Dims &dims, int batch_size)
-        {
-            // copy results from GPU to CPU
-            std::vector<float> cpu_output(getSizeByDim(dims) * batch_size);
             cudaMemcpyAsync(cpu_output.data(), gpu_output, cpu_output.size() * sizeof(float), cudaMemcpyDeviceToHost);
         }
 

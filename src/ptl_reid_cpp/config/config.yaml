@@ -11,6 +11,6 @@ reid_db:
 
 reid_inference:
   engine_file_name: "reid_engine.engine"
-  onnx_file_name: reid.onnx"
-  inference_offline_batch_size: 8
-  inference_real_time_batch_size: 4
+  onnx_file_name: "reid.onnx"
+  inference_offline_batch_size: 2
+  inference_real_time_batch_size: 1

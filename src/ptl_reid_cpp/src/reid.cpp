@@ -7,8 +7,10 @@ namespace ptl
         void Reid::init()
         {
             load_config();
+            reid_db = ReidDatabase(db_param);
+            reid_inferencer = ReidInference(inference_param);
             reid_inferencer.init();
-            reid_offline_thread = &std::thread(&Reid::reid_offline, this);
+            reid_offline_thread = std::thread(&Reid::reid_offline, this);
         }
 
         void Reid::load_config()
@@ -38,11 +40,19 @@ namespace ptl
             {
                 for (auto r : reid_detector.results)
                 {
-                    bboxes.push_back(r.bbox);
+                    if (r.type == 0) //TODO hard code in here
+                    {
+                        bboxes.push_back(r.bbox);
+                        std::cout << "Orz::" << r.bbox << std::endl;
+                    }
                 }
-                feat = reid_inferencer.do_inference_real_time(image, bboxes);
             }
 
+            // do reid inference
+            if (!bboxes.empty())
+            {
+                feat = reid_inferencer.do_inference_real_time(image, bboxes);
+            }
             //TODO dont forget visulize the detector
         }
 
@@ -53,12 +63,14 @@ namespace ptl
             {
                 if (!reid_offline_buffer.empty())
                 {
+                    ROS_INFO("fuck1");
                     //do offline inference
                     std::vector<float> feature_reid = reid_inferencer.do_inference_offline(reid_offline_buffer[0].image);
+                    ROS_INFO("fuck2");
                     reid_offline_buffer[0].feat_all.insert(reid_offline_buffer[0].feat_all.end(), feature_reid.begin(), feature_reid.end());
 
                     //udpate database
-                    reid_db.query_and_update(reid_offline_buffer[0].feat_all, reid_offline_buffer[0].example_image, reid_offline_buffer[0].postition);
+                    reid_db.query_and_update(reid_offline_buffer[0].feat_all, reid_offline_buffer[0].example_image, reid_offline_buffer[0].position);
 
                     //remove the first object of the buffer
                     reid_offline_buffer.pop_front();

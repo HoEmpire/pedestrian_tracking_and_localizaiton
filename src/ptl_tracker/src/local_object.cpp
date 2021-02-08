@@ -10,24 +10,16 @@ namespace ptl
 
         LocalObject::LocalObject(const int id_init, const cv::Rect2d &bbox_init, const Eigen::VectorXf &feat,
                                  const KalmanFilterParam &kf_param_init, const KalmanFilter3dParam &kf3d_param_init,
-                                 const ros::Time &time_now)
+                                 const ros::Time &time_now, const cv::Mat &image)
+            : id(id_init), bbox(bbox_init), features({feat}), features_now(feat), bbox_last_update_time(time_now), example_image(image)
         {
-            id = id_init;
-            bbox = bbox_init;
-            features.push_back(feat);
-            features_now = feat;
-
-            tracking_fail_count = 0;
-            detector_update_count = 0;
-
-            overlap_count = 0;
-
+            //init kalman filters
             kf = new KalmanFilter(kf_param_init);
             kf_3d = new KalmanFilter3d(kf3d_param_init);
             std::cout << bbox_init << std::endl;
             kf->init(bbox_init);
-            bbox_last_update_time = time_now;
 
+            //init the color
             cv::RNG rng(std::time(0));
             color = cv::Scalar(rng.uniform(0, 255), rng.uniform(0, 255), rng.uniform(0, 255));
         }

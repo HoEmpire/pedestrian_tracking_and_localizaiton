@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<launch>
+  <rosparam command="load" file="$(find ptl_reid_cpp)/config/config.yaml" />
+  <node pkg="ptl_reid_cpp" type="reid" name="ptl_reid" output="screen">
+  </node>
+</launch>
+

@@ -14,11 +14,10 @@ namespace ptl
 {
     namespace tracker
     {
-        TrackerInterface::TrackerInterface(const ros::NodeHandle &n, bool register_subscriber) : nh_(n)
+        void TrackerInterface::init(bool register_subscriber)
         {
             load_config(&nh_);
             opt_tracker = OpticalFlow(opt_param);
-            tf_listener = new tf2_ros::TransformListener(tf_buffer);
 
             //publisher
             m_track_vis_pub = nh_.advertise<sensor_msgs::Image>("tracker_results", 1);
@@ -91,7 +90,7 @@ namespace ptl
 
             //remove the tracker that loses track and also check whether enable opt(to avoid degeneration under occlusion)
             efficiency_clock.tic();
-            remove_dead_trackers();
+            std::vector<LocalObject> dead_tracker = remove_dead_trackers();
             ROS_INFO_STREAM("remove dead tracker:" << efficiency_clock.toc() * 1000 << " ms");
 
             //udpate overlap flag
@@ -110,6 +109,8 @@ namespace ptl
             efficiency_clock.tic();
             report_local_object();
             ROS_INFO_STREAM("report:" << efficiency_clock.toc() * 1000 << " ms");
+
+            return dead_tracker;
         }
 
         void TrackerInterface::update_bbox_by_detector(const cv::Mat &img,
@@ -117,7 +118,7 @@ namespace ptl
                                                        const std::vector<float> features_detector,
                                                        const ros::Time &update_time)
         {
-            ROS_INFO_STREAM("******Update Bbbox by Detector******");
+            ROS_INFO_STREAM("******Update Bbox by Detector******");
             timer t_spent;
 
             //maximum block size, to perform augumentation and rectification of the tracker block
@@ -133,7 +134,9 @@ namespace ptl
             detector_and_tracker_association(bboxes, block_max, feats_eigen, all_detected_bbox_ass_vec);
 
             //local object list management
-            manage_local_objects_list_by_detector(bboxes, block_max, feats_eigen, img, update_time, all_detected_bbox_ass_vec);
+            manage_local_objects_list_by_reid_detector(bboxes, block_max, feats_eigen, features_detector,
+                                                       img, update_time, all_detected_bbox_ass_vec);
+
             //summary
             report_local_object();
             ROS_INFO_STREAM("detector update:" << t_spent.toc() * 1000 << " ms");
@@ -479,12 +482,9 @@ namespace ptl
             // update each tracking object in tracking list by kalman filter
             for (auto &lo : local_objects_list)
             {
-                // std::cout << lo.bbox << std::endl;
-                // std::cout << update_time.toSec() << std::endl;
-                // std::cout << lo.bbox_last_update_time.toSec() << std::endl;
                 lo.track_bbox_by_optical_flow(update_time);
                 bbox_rect(block_max);
-                // std::cout << lo.bbox << std::endl;
+                std::cout << lo.bbox << std::endl;
                 //update database
                 if (lo.is_track_succeed & update_database)
                 {
@@ -505,7 +505,6 @@ namespace ptl
                 if (lo->tracking_fail_count >= track_fail_timeout_tick || lo->detector_update_count >= detector_update_timeout_tick)
                 {
                     ptl_msgs::DeadTracker msg_pub; // publish the dead tracker to reid
-                    //TODO add n*2048 feature to DeadTraker
                     for (auto ib : lo->img_blocks)
                     {
                         msg_pub.img_blocks.push_back(*cv_bridge::CvImage(std_msgs::Header(), "bgr8", ib).toImageMsg());
@@ -633,7 +632,7 @@ namespace ptl
                     //this detected object is a new object
                     ROS_INFO_STREAM("Adding Tracking Object with ID:" << local_id_not_assigned);
                     LocalObject new_object(local_id_not_assigned, bboxes[i], features[i],
-                                           kf_param, kf3d_param, update_time);
+                                           kf_param, kf3d_param, update_time, img(bboxes[i]));
                     local_id_not_assigned++;
                     //update database
                     update_local_database(new_object, img(new_object.bbox));
@@ -664,19 +663,23 @@ namespace ptl
                                                                           const cv::Mat &img, const ros::Time &update_time, const std::vector<AssociationVector> &all_detected_bbox_ass_vec)
         {
             lock_guard<mutex> lk(mtx); //lock the thread
+
+            std::cout << feat_vector.size() << std::endl;
+            std::cout << feat_eigen.size() << std::endl;
             const int feat_dimension = feat_vector.size() / feat_eigen.size();
+
             for (int i = 0; i < all_detected_bbox_ass_vec.size(); i++)
             {
-
                 if (all_detected_bbox_ass_vec[i].ass_vector.empty())
                 {
                     //this detected object is a new object
                     ROS_INFO_STREAM("Adding Tracking Object with ID:" << local_id_not_assigned);
                     LocalObject new_object(local_id_not_assigned, bboxes[i], feat_eigen[i],
-                                           kf_param, kf3d_param, update_time);
+                                           kf_param, kf3d_param, update_time, img(bboxes[i]));
                     local_id_not_assigned++;
-                    //update database
-                    update_local_database(new_object, img(new_object.bbox));
+                    //insert the 2048d feature vector
+                    new_object.features_vector.insert(new_object.features_vector.end(), feat_vector.begin(), feat_vector.end());
+
                     local_objects_list.push_back(new_object);
                 }
                 else
@@ -687,13 +690,10 @@ namespace ptl
 
                     local_objects_list[matched_id].track_bbox_by_detector(bboxes[i], update_time);
                     local_objects_list[matched_id].update_feat(feat_eigen[i], feature_smooth_ratio);
+                    //insert the 2048d feature vector
                     local_objects_list[matched_id].features_vector.insert(local_objects_list[matched_id].features_vector.end(),
                                                                           feat_vector.begin() + i * feat_dimension,
                                                                           feat_vector.begin() + (i + 1) * feat_dimension);
-
-                    //update database
-                    //TODO this part can be removed later
-                    update_local_database(local_objects_list[matched_id], img(local_objects_list[matched_id].bbox & block_max));
                 }
             }
 

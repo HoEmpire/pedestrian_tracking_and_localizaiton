@@ -18,16 +18,6 @@ namespace ptl
 {
     namespace reid
     {
-        // calculate size of tensor
-        size_t getSizeByDim(const nvinfer1::Dims &dims)
-        {
-            size_t size = 1;
-            for (size_t i = 1; i < dims.nbDims; ++i)
-            {
-                size *= dims.d[i];
-            }
-            return size;
-        }
 
         class Logger : public nvinfer1::ILogger
         {
@@ -40,7 +30,7 @@ namespace ptl
                     std::cout << msg << "\n";
                 }
             }
-        } gLogger;
+        };
 
         // destroy TensorRT objects if something goes wrong
         struct TRTDestroy
@@ -99,6 +89,7 @@ namespace ptl
             TRTUniquePtr<nvinfer1::ICudaEngine> engine{nullptr};
             TRTUniquePtr<nvinfer1::IExecutionContext> context_real_time{nullptr};
             TRTUniquePtr<nvinfer1::IExecutionContext> context_offline{nullptr};
+            Logger gLogger;
 
             InferenceParam reid_param_;
         };

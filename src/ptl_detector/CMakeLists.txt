@@ -70,7 +70,7 @@ target_link_libraries(
 )
 
 # apps
-add_simple_apps()
+# add_simple_apps()
 
 
 

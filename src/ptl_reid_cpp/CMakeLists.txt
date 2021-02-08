@@ -5,10 +5,15 @@ project(ptl_reid_cpp)
 set(CMAKE_BUILD_TYPE "Release")
 set(CMAKE_CXX_FLAGS "-std=c++11 ${CMAKE_CXX_FLAGS} -O3 -pthread")
 
+# add useful marcos
+include(${CMAKE_CURRENT_SOURCE_DIR}/../../cmake/util.cmake)
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../../cmake/modules)
+
 find_package(catkin 
     REQUIRED 
     COMPONENTS
     roscpp
+    ptl_detector
 )
 
 catkin_package(
@@ -22,6 +27,8 @@ find_package(Threads)
 find_package(CUDA REQUIRED)
 find_package(TensorRT REQUIRED)
 find_library(Faiss_LIBS libfaiss.a /usr/local/lib)
+find_package(OpenMP REQUIRED)
+find_package(LAPACK REQUIRED)
 
 include_directories( 
     include
@@ -30,11 +37,18 @@ include_directories(
     ${CUDA_INCLUDE_DIRS} 
     ${TensorRT_INCLUDE_DIRS}
 )
-add_library(reid_lib src/reid_database.cpp src/reid_inference.cpp src/reid.cpp)
-target_link_libraries(reid_lib ${OpenCV_LIBS} ${catkin_LIBRARIES} ${CUDA_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} ${TensorRT_LIBRARIES}) 
+add_library(ptl_reid_cpp src/reid_database.cpp src/reid_inference.cpp src/reid.cpp)
+target_link_libraries(
+    ptl_reid_cpp 
+    ${OpenCV_LIBS} 
+    ${catkin_LIBRARIES} 
+    ${CUDA_LIBRARIES} 
+    ${CMAKE_THREAD_LIBS_INIT} 
+    ${TensorRT_LIBRARIES}
+    ${Faiss_LIBS} 
+    OpenMP::OpenMP_CXX 
+    ${LAPACK_LIBRARIES}
+    ) 
 
-# add_library(pcp_lib src/point_cloud_processor.cpp)
-
-# add_executable(tracker src/main.cpp) 
-# target_link_libraries(tracker tracker_lib pcp_lib)
-# add_dependencies(tracker ptl_msgs_generate_messages_cpp)
+add_executable(reid app/main.cpp) 
+target_link_libraries(reid ptl_reid_cpp)

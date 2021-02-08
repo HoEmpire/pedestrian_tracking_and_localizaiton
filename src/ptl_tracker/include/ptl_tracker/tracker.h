@@ -41,7 +41,9 @@ namespace ptl
         {
         public:
             TrackerInterface() = default;
-            TrackerInterface(const ros::NodeHandle &n, bool register_subscriber = true);
+            TrackerInterface(const ros::NodeHandle &n) : nh_(n) {}
+
+            void init(bool register_subscriber = true);
 
             //udpate bbox by optical tracker and return the dead tracker
             std::vector<LocalObject> update_bbox_by_tracker(const cv::Mat &img, const ros::Time &update_time);
@@ -103,7 +105,7 @@ namespace ptl
 
             //tf
             tf2_ros::Buffer tf_buffer;
-            tf2_ros::TransformListener *tf_listener;
+            tf2_ros::TransformListener *tf_listener = new tf2_ros::TransformListener(tf_buffer);
             geometry_msgs::TransformStamped lidar2camera, lidar2map, camera2map;
 
             //lock

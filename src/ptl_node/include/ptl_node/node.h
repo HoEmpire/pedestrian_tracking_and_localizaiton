@@ -1,6 +1,6 @@
 #pragma once
-#include <ptl_tracker/tracker.h>
-#include <ptl_reid_cpp/reid.h>
+#include "ptl_tracker/tracker.h"
+#include "ptl_reid_cpp/reid.h"
 
 namespace ptl
 {
@@ -17,12 +17,10 @@ namespace ptl
         {
         public:
             Node() = default;
-            Node(const ros::NodeHandle &n) : nh_(n),
-                                             ptl_reid(reid::Reid(n)),
-                                             ptl_tracker(tracker::TrackerInterface(n)) {}
+            Node(const ros::NodeHandle &n);
 
-            //load config, init ptl_reid, register two callback function with the subscriber
-            void init();
+            // //load config, init ptl_reid, register two callback function with the subscriber
+            // void init();
 
         private:
             void load_config();
@@ -31,7 +29,7 @@ namespace ptl
 
             void lidar_callback(const sensor_msgs::PointCloud2ConstPtr &point_cloud);
 
-            void reid_real_time(const cv::Mat &image, const ros::Time time_now);
+            void reid_real_time(const cv::Mat &image, const ros::Time &time_now);
 
             ros::NodeHandle nh_;
             reid::Reid ptl_reid;

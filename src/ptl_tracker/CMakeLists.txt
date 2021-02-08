@@ -33,13 +33,19 @@ include_directories(
     ${EIGEN3_INCLUDE_DIRS}
     ${PCL_INCLUDE_DIRS}
 )
-add_library(tracker_lib src/local_object.cpp src/tracker.cpp src/kalman_filter.cpp src/kalman_filter_3d.cpp src/optical_flow.cpp)
-target_link_libraries(tracker_lib ${OpenCV_LIBS} ${catkin_LIBRARIES}) 
+add_library(ptl_tracker 
+            src/local_object.cpp 
+            src/tracker.cpp 
+            src/kalman_filter.cpp 
+            src/kalman_filter_3d.cpp 
+            src/optical_flow.cpp 
+            src/point_cloud_processor.cpp
+        )
+target_link_libraries(ptl_tracker ${OpenCV_LIBS} ${catkin_LIBRARIES} ${PCL_LIBRARIES}) 
+add_dependencies(ptl_tracker ptl_msgs_generate_messages_cpp)
 
-add_library(pcp_lib src/point_cloud_processor.cpp)
-
-add_executable(tracker src/main.cpp) 
-target_link_libraries(tracker tracker_lib pcp_lib)
+add_executable(tracker app/main.cpp) 
+target_link_libraries(tracker ptl_tracker)
 add_dependencies(tracker ptl_msgs_generate_messages_cpp)
 
 # add_executable(tf_publisher src/tf_publisher.cpp) 

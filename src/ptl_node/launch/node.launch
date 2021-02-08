@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<launch>
+  <rosparam command="load" file="$(find ptl_node)/config/config.yaml" />
+  <rosparam command="load" file="$(find ptl_tracker)/config/config.yaml" />
+  <rosparam command="load" file="$(find ptl_detector)/config/config.yaml" />
+  <rosparam command="load" file="$(find ptl_reid_cpp)/config/config.yaml" />
+
+  <node pkg="ptl_node" type="node" name="ptl_node" output="screen">
+  </node>
+</launch>
+
