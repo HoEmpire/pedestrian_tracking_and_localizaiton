@@ -24,9 +24,6 @@
 #include <sensor_msgs/PointCloud2.h>
 #include <visualization_msgs/Marker.h>
 
-//opentracker
-#include "opentracker/kcf/kcftracker.hpp"
-
 #include "ptl_tracker/optical_flow.h"
 #include "ptl_tracker/association_type.hpp"
 #include "ptl_tracker/point_cloud_processor.h"

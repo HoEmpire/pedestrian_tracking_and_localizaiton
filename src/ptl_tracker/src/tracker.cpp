@@ -5,7 +5,6 @@
 
 using cv::Mat;
 using cv::Rect2d;
-using kcf::KCFTracker;
 using std::lock_guard;
 using std::mutex;
 using std::vector;
