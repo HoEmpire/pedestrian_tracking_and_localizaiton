@@ -1,7 +1,7 @@
 reid_db:
-  similarity_test_threshold: 150.0
-  same_id_threshold: 350.0
-  batch_ratio: 0.55
+  similarity_test_threshold: 0.2
+  same_id_threshold: 0.2
+  batch_ratio: 0.5
   max_feat_num_one_object: 50
   use_inverted_file_db_threshold: 2500
   feat_dimension: 2048
@@ -12,5 +12,5 @@ reid_db:
 reid_inference:
   engine_file_name: "reid_engine.engine"
   onnx_file_name: "reid.onnx"
-  inference_offline_batch_size: 2
+  inference_offline_batch_size: 1
   inference_real_time_batch_size: 1

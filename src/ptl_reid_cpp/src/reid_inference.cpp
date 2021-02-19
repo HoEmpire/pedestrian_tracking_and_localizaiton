@@ -4,6 +4,14 @@ namespace ptl
 {
     namespace reid
     {
+        // ReidInference::~ReidInference()
+        // {
+        //     for (void *buf : buffers)
+        //     {
+        //         cudaFree(buf);
+        //     }
+        // }
+
         // calculate size of tensor
         size_t getSizeByDim(const nvinfer1::Dims &dims)
         {
@@ -29,18 +37,16 @@ namespace ptl
                 }
                 save_engine(engine_path);
             }
+            buffers = std::vector<void *>(engine->getNbBindings()); // buffers for input and output data
+            cudaMalloc(&buffers[0], getSizeByDim(context_real_time->getBindingDimensions(0)) * reid_param_.inference_real_time_batch_size * sizeof(float));
+            cudaMalloc(&buffers[1], getSizeByDim(context_real_time->getBindingDimensions(1)) * reid_param_.inference_real_time_batch_size * sizeof(float));
+            cudaMalloc(&buffers[2], getSizeByDim(context_offline->getBindingDimensions(0)) * reid_param_.inference_offline_batch_size * sizeof(float));
+            cudaMalloc(&buffers[3], getSizeByDim(context_offline->getBindingDimensions(1)) * reid_param_.inference_offline_batch_size * sizeof(float));
         }
 
         std::vector<float> ReidInference::do_inference_real_time(const cv::Mat &image, const std::vector<cv::Rect2d> &bboxes)
         {
             //create buffer and allocate memory in gpu
-            std::cout << engine->getNbBindings() << std::endl;
-            std::cout << getSizeByDim(context_real_time->getBindingDimensions(0)) * reid_param_.inference_offline_batch_size << std::endl;
-            std::cout << getSizeByDim(context_real_time->getBindingDimensions(1)) * reid_param_.inference_offline_batch_size << std::endl;
-
-            std::vector<void *> buffers(engine->getNbBindings()); // buffers for input and output data
-            cudaMalloc(&buffers[0], getSizeByDim(context_real_time->getBindingDimensions(0)) * reid_param_.inference_real_time_batch_size * sizeof(float));
-            cudaMalloc(&buffers[1], getSizeByDim(context_real_time->getBindingDimensions(1)) * reid_param_.inference_real_time_batch_size * sizeof(float));
 
             std::vector<float> result;
             for (int i = 0; i < (bboxes.size() - 1) / reid_param_.inference_real_time_batch_size + 1; i++)
@@ -74,31 +80,17 @@ namespace ptl
                 }
             }
 
-            //TODO Free space in here
-            //Free GPU space(or may be not)
-            for (void *buf : buffers)
-            {
-                cudaFree(buf);
-            }
-
             return result;
         }
 
         std::vector<float> ReidInference::do_inference_offline(const std::vector<cv::Mat> &images)
         {
-            std::cout << "FUCK11" << std::endl;
-            std::vector<void *> buffers(engine->getNbBindings()); // buffers for input and output data
-            std::cout << engine->getNbBindings() << std::endl;
-            std::cout << getSizeByDim(context_offline->getBindingDimensions(0)) * reid_param_.inference_offline_batch_size << std::endl;
-            std::cout << getSizeByDim(context_offline->getBindingDimensions(1)) * reid_param_.inference_offline_batch_size << std::endl;
-            cudaMalloc(&buffers[2], getSizeByDim(context_offline->getBindingDimensions(0)) * reid_param_.inference_offline_batch_size * sizeof(float));
-            cudaMalloc(&buffers[3], getSizeByDim(context_offline->getBindingDimensions(1)) * reid_param_.inference_offline_batch_size * sizeof(float));
-
-            std::cout << "FUCK12" << std::endl;
             std::vector<float> result;
+            if (images.empty())
+                return result;
+
             for (int i = 0; i < (images.size() - 1) / reid_param_.inference_offline_batch_size + 1; i++)
             {
-                std::cout << "FUCK13" << std::endl;
                 if ((i + 1) * reid_param_.inference_offline_batch_size > images.size())
                 {
                     //deal with last batch
@@ -109,11 +101,8 @@ namespace ptl
                     data_preprocesss(images.begin() + i * reid_param_.inference_offline_batch_size,
                                      images.begin() + (i + 1) * reid_param_.inference_offline_batch_size, (float *)buffers[2]);
                 }
-                std::cout << "FUCK14" << std::endl;
                 inference(buffers, false);
-                std::cout << "FUCK15" << std::endl;
                 std::vector<float> result_tmp(getSizeByDim(context_offline->getBindingDimensions(1)) * reid_param_.inference_offline_batch_size);
-                std::cout << "FUCK16" << std::endl;
                 result_postprocess((float *)buffers[3], result_tmp);
                 if ((i + 1) * reid_param_.inference_offline_batch_size > images.size())
                 {
@@ -123,13 +112,6 @@ namespace ptl
                 else
                 {
                     result.insert(result.end(), result_tmp.begin(), result_tmp.end());
-                }
-                std::cout << result.size() << std::endl;
-                //TODO Free space in here
-                //Free GPU space(or may be not)
-                for (void *buf : buffers)
-                {
-                    cudaFree(buf);
                 }
             }
             return result;
@@ -155,6 +137,7 @@ namespace ptl
                 std::cout << "Error loading reid engine file: " << engine_path << std::endl;
                 return false;
             }
+            initLibNvInferPlugins(&gLogger, "");
             TRTUniquePtr<nvinfer1::IRuntime> runtime{nvinfer1::createInferRuntime(gLogger)};
             engine.reset(runtime->deserializeCudaEngine(engine_data.data(), fsize, nullptr));
             engine_file.close();
@@ -264,8 +247,8 @@ namespace ptl
                 //image in is bgr
                 //image net mean(rgb)：0.485，0.456，0.406
                 //image net mean(std)：0.229，0.224，0.225
-                cv::cuda::subtract(flt_image, cv::Scalar(0.485f, 0.456f, 0.406f), flt_image, cv::noArray(), -1);
-                cv::cuda::divide(flt_image, cv::Scalar(0.229f, 0.224f, 0.225f), flt_image, 1, -1);
+                cv::cuda::subtract(flt_image, cv::Scalar(0.406f, 0.456f, 0.485f), flt_image, cv::noArray(), -1);
+                cv::cuda::divide(flt_image, cv::Scalar(0.225f, 0.224f, 0.229f), flt_image, 1, -1);
 
                 // to tensor
                 std::vector<cv::cuda::GpuMat> chw;
@@ -305,8 +288,8 @@ namespace ptl
                 //image in is bgr
                 //image net mean(rgb)：0.485，0.456，0.406
                 //image net mean(std)：0.229，0.224，0.225
-                cv::cuda::subtract(flt_image, cv::Scalar(0.485f, 0.456f, 0.406f), flt_image, cv::noArray(), -1);
-                cv::cuda::divide(flt_image, cv::Scalar(0.229f, 0.224f, 0.225f), flt_image, 1, -1);
+                cv::cuda::subtract(flt_image, cv::Scalar(0.406f, 0.456f, 0.485f), flt_image, cv::noArray(), -1);
+                cv::cuda::divide(flt_image, cv::Scalar(0.225f, 0.224f, 0.229f), flt_image, 1, -1);
 
                 // to tensor
                 std::vector<cv::cuda::GpuMat> chw;

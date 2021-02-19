@@ -24,6 +24,7 @@ namespace ptl
             GPARAM(nh_, "/node/lidar_topic", node_param.lidar_topic);
             GPARAM(nh_, "/node/camera_topic", node_param.camera_topic);
             GPARAM(nh_, "/node/detect_every_k_frame", node_param.detect_every_k_frame);
+            GPARAM(nh_, "/node/min_offline_query_data_size", node_param.min_offline_query_data_size);
         }
 
         void Node::camera_callback(const sensor_msgs::CompressedImageConstPtr &image)
@@ -49,7 +50,10 @@ namespace ptl
             {
                 for (auto dio : dead_object)
                 {
-                    ptl_reid.reid_offline_buffer.emplace_back(dio.example_image, dio.img_blocks, dio.position, dio.features_vector);
+                    if (dio.img_blocks.size() + dio.features_vector.size() / 2048 > node_param.min_offline_query_data_size) //TODO hardcode in here
+                    {
+                        ptl_reid.reid_offline_buffer.emplace_back(dio.example_image, dio.img_blocks, dio.position, dio.features_vector);
+                    }
                 }
             }
             ROS_INFO_STREAM("Camera callback takes " << t.toc() * 1000 << " ms.");

@@ -20,50 +20,69 @@ namespace ptl
             }
             else
             {
-                std::vector<idx_t> index(db_param_.find_first_k * feat_query.size() / db_param_.feat_dimension);
+                std::vector<idx_t> index;
+                std::vector<idx_t> index_fake(db_param_.find_first_k * feat_query.size() / db_param_.feat_dimension);
+
                 std::vector<float> distance(db_param_.find_first_k * feat_query.size() / db_param_.feat_dimension);
                 //find the k nearest neighbour first
                 if (is_using_db_small)
                 {
                     db_small.search(feat_query.size() / db_param_.feat_dimension, feat_query.data(),
-                                    db_param_.find_first_k, distance.data(), index.data());
+                                    db_param_.find_first_k, distance.data(), index_fake.data());
                 }
                 else
                 {
                     db_large->search(feat_query.size() / db_param_.feat_dimension, feat_query.data(),
-                                     db_param_.find_first_k, distance.data(), index.data());
+                                     db_param_.find_first_k, distance.data(), index_fake.data());
                 }
-                report_query(index, distance);
+                convert_index(index_fake, index);
 
                 //get the id of this batch
                 std::vector<int> match_count(object_db.size() + 1, 0);
-                int max_id = -1;
+                int match_id = -1;
                 int max_count = 0;
                 for (int i = 0; i < index.size() / db_param_.find_first_k; i++)
                 {
-                    for (int j = 0; j < db_param_.find_first_k; j++)
+                    int matched_db_id_for_this_query;
+                    if (distance[i * db_param_.find_first_k] < db_param_.same_id_threshold)
                     {
-                        int matched_db_id_for_this_query;
-                        if (distance[i * db_param_.find_first_k + j] > db_param_.same_id_threshold)
-                        {
-                            match_count[index[i * db_param_.find_first_k + j]]++;
-                            matched_db_id_for_this_query = index[i * db_param_.find_first_k + j];
-                        }
-                        else
-                        {
-                            // no correct matched object found
-                            match_count[object_db.size()]++;
-                            matched_db_id_for_this_query = object_db.size();
-                        }
+                        match_count[index[i * db_param_.find_first_k]]++;
+                        matched_db_id_for_this_query = index[i * db_param_.find_first_k];
+                    }
+                    else
+                    {
+                        // no correct matched object found
+                        match_count[object_db.size()]++;
+                        matched_db_id_for_this_query = object_db.size();
+                    }
 
-                        if (match_count[matched_db_id_for_this_query] > max_count)
-                        {
-                            max_id = matched_db_id_for_this_query;
-                            max_count = match_count[matched_db_id_for_this_query];
-                        }
+                    if (match_count[matched_db_id_for_this_query] > max_count)
+                    {
+                        match_id = matched_db_id_for_this_query;
+                        max_count = match_count[matched_db_id_for_this_query];
                     }
                 }
-                return max_id;
+
+                if (need_report)
+                {
+                    report_query(index, distance);
+                }
+
+                std::cout << "\033[32m"
+                          << "id: " << match_id << " , batch: " << max_count << "/"
+                          << feat_query.size() / db_param_.feat_dimension << " = " << 1.0 * max_count / (feat_query.size() / db_param_.feat_dimension)
+                          << "\033[0m" << std::endl;
+
+                if (1.0 * max_count / (feat_query.size() / db_param_.feat_dimension) < db_param_.batch_ratio)
+                {
+                    std::cout << db_param_.batch_ratio << std::endl;
+                    std::cout << "\033[31m"
+                              << "Failed the batch test! This is an unknown object."
+                              << "\033[0m" << std::endl;
+                    match_id = object_db.size();
+                }
+
+                return match_id;
             }
         }
 
@@ -84,7 +103,6 @@ namespace ptl
         void ReidDatabase::update(const std::vector<float> &feat_query, int id, const cv::Mat &example_image, const geometry_msgs::Point &position)
         {
             std::vector<float> feat_update;
-
             //update object database and get the feature that will be added to the feature database
             update_object_db(feat_query, feat_update, id, example_image, position);
 
@@ -130,7 +148,7 @@ namespace ptl
                     object_db[id].db.search(1, feat.data(), 1, distance.data(), index.data());
 
                     //pass the sim check， then we add it to the database
-                    if (distance[0] > db_param_.sim_check_start_threshold)
+                    if (distance[0] > db_param_.similarity_test_threshold && object_db[id].feat_num <= db_param_.max_feat_num_one_object)
                     {
                         object_db[id].db.add(1, feat.data());
                         object_db[id].feat_num++;
@@ -160,13 +178,13 @@ namespace ptl
                     //build a new larger database
                     db_large = new faiss::IndexIVFFlat(&db_small, db_param_.feat_dimension, size_t(num_feat / db_param_.nlist_ratio), faiss::METRIC_INNER_PRODUCT);
                     db_large->train(num_feat, feat_all.data()); //TODO this step might perform asychronously
-                    db_large->add_with_ids(num_feat, feat_all.data(), id_all.data());
+                    db_large->add(num_feat, feat_all.data());
                     is_using_db_small = false;
                     num_feat_when_building_db = num_feat;
                 }
                 else
                 {
-                    db_small.add_with_ids(feat_update.size() / db_param_.feat_dimension, feat_update.data(), ids.data());
+                    db_small.add(feat_update.size() / db_param_.feat_dimension, feat_update.data());
                 }
             }
             else
@@ -177,12 +195,12 @@ namespace ptl
                 {
                     db_large = new faiss::IndexIVFFlat(&db_small, db_param_.feat_dimension, size_t(num_feat / db_param_.nlist_ratio), faiss::METRIC_INNER_PRODUCT);
                     db_large->train(num_feat, feat_all.data()); //TODO this step might perform asychronously
-                    db_large->add_with_ids(num_feat, feat_all.data(), id_all.data());
+                    db_large->add(num_feat, feat_all.data());
                     num_feat_when_building_db = num_feat;
                 }
                 else
                 {
-                    db_large->add_with_ids(feat_update.size() / db_param_.feat_dimension, feat_update.data(), ids.data());
+                    db_large->add(feat_update.size() / db_param_.feat_dimension, feat_update.data());
                 }
             }
         }
@@ -195,6 +213,16 @@ namespace ptl
                 std::cout << "id: " << ob.id << " | db num: " << ob.feat_num << std::endl;
             }
             std::cout << "***Reid Database Report Done***" << std::endl;
+            std::cout << std::endl;
+        }
+
+        void ReidDatabase::convert_index(const std::vector<faiss::Index::idx_t> &index_fake, std::vector<faiss::Index::idx_t> &index)
+        {
+            index.clear();
+            for (auto idf : index_fake)
+            {
+                index.push_back(id_all[idf]);
+            }
         }
     } // namespace reid
 } // namespace ptl

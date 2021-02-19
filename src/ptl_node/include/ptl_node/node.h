@@ -11,6 +11,7 @@ namespace ptl
             int detect_every_k_frame = 5;
             std::string lidar_topic = "/rslidar_points";
             std::string camera_topic = "/camera2/color/image_raw/compressed";
+            int min_offline_query_data_size = 10;
         };
 
         class Node

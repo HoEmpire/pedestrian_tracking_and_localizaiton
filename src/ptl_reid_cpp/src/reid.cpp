@@ -63,10 +63,8 @@ namespace ptl
             {
                 if (!reid_offline_buffer.empty())
                 {
-                    ROS_INFO("fuck1");
                     //do offline inference
                     std::vector<float> feature_reid = reid_inferencer.do_inference_offline(reid_offline_buffer[0].image);
-                    ROS_INFO("fuck2");
                     reid_offline_buffer[0].feat_all.insert(reid_offline_buffer[0].feat_all.end(), feature_reid.begin(), feature_reid.end());
 
                     //udpate database

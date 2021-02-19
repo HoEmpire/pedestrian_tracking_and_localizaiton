@@ -24,7 +24,7 @@ local_database:
   blur_detection_threshold: 20.0
   record_interval: 0.1
   batch_num_min: 8
-  feature_smooth_ratio: 0.8
+  feature_smooth_ratio: 0.6
 
 pc_processor:
   resample_size: 0.1

@@ -29,18 +29,18 @@ namespace ptl
 
         public:
             ObjectType(const int id_init, const cv::Mat &img, const geometry_msgs::Point &pos_init)
-                : id(id_init), example_image(img), pos(pos_init), feat_dimension(2048) {}
+                : id(id_init), example_image(img), pos(pos_init), feat_dimension(2048), db(2048) {}
 
             ObjectType(const int id_init, const cv::Mat &img, const geometry_msgs::Point &pos_init,
                        const int feat_dim)
-                : id(id_init), example_image(img), pos(pos_init), feat_dimension(feat_dim) {}
+                : id(id_init), example_image(img), pos(pos_init), feat_dimension(feat_dim), db(feat_dim) {}
 
             void update_pos(const geometry_msgs::Point &pos_new)
             {
                 pos = pos_new;
             }
 
-            faiss::IndexFlatIP db = faiss::IndexFlatIP(feat_dimension);
+            faiss::IndexFlatL2 db;
             int feat_num = 0;
             int id = 0;
 
@@ -54,7 +54,7 @@ namespace ptl
         {
         public:
             ReidDatabase() = default;
-            ReidDatabase(const DataBaseParam &db_param) : db_param_(db_param) {}
+            ReidDatabase(const DataBaseParam &db_param) : db_param_(db_param), db_small(db_param_.feat_dimension) {}
 
             //query a set of image features and update the database
             void query_and_update(const std::vector<float> &feat_query, const cv::Mat &example_image, const geometry_msgs::Point &position);
@@ -78,12 +78,14 @@ namespace ptl
 
             void report_object_db();
 
+            void convert_index(const std::vector<faiss::Index::idx_t> &index_fake, std::vector<faiss::Index::idx_t> &index);
+
             int max_id = 0;
             DataBaseParam db_param_;
             std::vector<ObjectType> object_db;
 
             bool is_using_db_small = true;
-            faiss::IndexFlatIP db_small = faiss::IndexFlatIP(db_param_.feat_dimension);
+            faiss::IndexFlatL2 db_small;
             faiss::IndexIVFFlat *db_large;
 
             faiss::Index::idx_t num_feat = 0;

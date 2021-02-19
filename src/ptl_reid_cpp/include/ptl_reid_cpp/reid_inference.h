@@ -1,10 +1,15 @@
 #pragma once
 #include <iostream>
 #include <fstream>
-#include <NvInfer.h>
 #include <memory>
-#include <NvOnnxParser.h>
+
 #include <vector>
+
+#include <NvInfer.h>
+#include <NvOnnxParser.h>
+#include <NvInferPlugin.h>
+#include <NvInferRuntimeCommon.h>
+
 #include <cuda_runtime_api.h>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/core/cuda.hpp>
@@ -60,7 +65,7 @@ namespace ptl
         {
         public:
             ReidInference() = default;
-            ReidInference(InferenceParam reid_param) : reid_param_(reid_param) {}
+            ReidInference(const InferenceParam &reid_param) : reid_param_(reid_param) {}
 
             //initialize the engine
             void init();
@@ -92,6 +97,8 @@ namespace ptl
             Logger gLogger;
 
             InferenceParam reid_param_;
+
+            std::vector<void *> buffers;
         };
     } // namespace reid
 } // namespace ptl

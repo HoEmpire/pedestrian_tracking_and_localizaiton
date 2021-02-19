@@ -2,3 +2,4 @@ node:
   detect_every_k_frame: 5
   lidar_topic: "/rslidar_points"
   camera_topic: "/camera2/color/image_raw/compressed"
+  min_offline_query_data_size: 20
