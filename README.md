@@ -180,7 +180,7 @@ The config files of each package can be found in `${PROJECT_NAME}/config/config.
   - **batch_num_min**: deprecated, check the `min_offline_query_data_size` in `ptl_reid_cpp/config/config.yaml`
   - **feature_smooth_ratio**: the current feature of a tracking object is calculated by:
 
-  $$feature_{current} = ratio * feature_{previous} + (1- ratio) * feature_{new}$$
+    $$feature_{current} = ratio * feature_{previous} + (1- ratio) * feature_{new}$$
 
   - **resample_size**: point cloud resample size(Unit:m)
   - **x_min/x_max/z_min/z_max**: point cloud conditional filter(Unit:m)
