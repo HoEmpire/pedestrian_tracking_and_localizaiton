@@ -7,7 +7,9 @@ namespace ptl
         {
             _kf_param = kf_param;
             // Q = Eigen::Matrix4d::Identity() * kf_param.Q_factor;
-            P = Eigen::MatrixXd::Identity(6, 6) * kf_param.P_factor;
+            P = Eigen::MatrixXd::Identity(6, 6);
+            P.block<3, 3>(0, 0) = Eigen::MatrixXd::Identity(3, 3) * kf_param.P_pos;
+            P.block<3, 3>(3, 3) = Eigen::MatrixXd::Identity(3, 3) * kf_param.P_vel;
             R = Eigen::Matrix3d::Identity() * kf_param.R_factor;
 
             F = Eigen::MatrixXd::Identity(6, 6);
@@ -26,9 +28,10 @@ namespace ptl
             F.block<3, 3>(0, 3) = Eigen::Matrix3d::Identity() * dt;
             x = F * x;
             Q = Eigen::MatrixXd::Zero(6, 6);
-            Q(3, 3) = dt;
-            Q(4, 4) = dt;
-            Q(5, 5) = dt;
+            //random acceleration model
+            Q(0, 0) = Q(1, 1) = Q(2, 2) = pow(dt, 4) * 0.25;
+            Q(3, 3) = Q(4, 4) = Q(5, 5) = pow(dt, 2);
+            Q(0, 3) = Q(3, 0) = Q(1, 4) = Q(4, 1) = Q(2, 5) = Q(5, 2) = pow(dt, 3) * 0.5;
 
             Q *= _kf_param.Q_factor;
             P = F * P * F.transpose() + Q;

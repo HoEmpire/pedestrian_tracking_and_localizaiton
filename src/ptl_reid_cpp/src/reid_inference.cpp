@@ -65,8 +65,6 @@ namespace ptl
 
                 inference(buffers, true);
                 std::vector<float> result_tmp(getSizeByDim(context_real_time->getBindingDimensions(1)) * reid_param_.inference_real_time_batch_size);
-                std::cout << getSizeByDim(context_real_time->getBindingDimensions(1)) * reid_param_.inference_real_time_batch_size << std::endl;
-                std::cout << result_tmp.size() << std::endl;
                 result_postprocess((float *)buffers[1], result_tmp);
 
                 if ((i + 1) * reid_param_.inference_real_time_batch_size > bboxes.size())

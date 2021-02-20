@@ -10,7 +10,8 @@ namespace ptl
         {
             double Q_factor;
             double R_factor;
-            double P_factor;
+            double P_pos;
+            double P_vel;
             int start_predict_only_timeout; //using detector update tick as signal
             int stop_track_timeout;         //using detector
             double outlier_threshold;       //calculated by the probability of gaussian distribution

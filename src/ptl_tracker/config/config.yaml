@@ -59,11 +59,12 @@ kalman_filter:
   residual_threshold: 16
 
 kalman_filter_3d:
-  q_factor: 1 # 2m/s max speed, 0.5m/s uncertainty
+  q_factor: 100 # 2m/s max speed, 0.5m/s uncertainty
   r_factor: 0.25 # 1m
-  p_factor: 1000 # 10m position uncertainty
-  start_predict_only_timeout: 5
-  stop_track_timeout: 8
+  p_pos: 100
+  p_vel: 4
+  start_predict_only_timeout: 10
+  stop_track_timeout: 15
   outlier_threshold: 4.0
 
 optical_flow:

@@ -273,7 +273,8 @@ namespace ptl
 
             GPARAM(n, "/kalman_filter_3d/q_factor", kf3d_param.Q_factor);
             GPARAM(n, "/kalman_filter_3d/r_factor", kf3d_param.R_factor);
-            GPARAM(n, "/kalman_filter_3d/p_factor", kf3d_param.P_factor);
+            GPARAM(n, "/kalman_filter_3d/p_pos", kf3d_param.P_pos);
+            GPARAM(n, "/kalman_filter_3d/p_vel", kf3d_param.P_vel);
             GPARAM(n, "/kalman_filter_3d/start_predict_only_timeout", kf3d_param.start_predict_only_timeout);
             GPARAM(n, "/kalman_filter_3d/stop_track_timeout", kf3d_param.stop_track_timeout);
             GPARAM(n, "/kalman_filter_3d/outlier_threshold", kf3d_param.outlier_threshold);
