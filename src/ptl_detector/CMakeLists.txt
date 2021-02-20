@@ -69,8 +69,5 @@ target_link_libraries(
     yolo_trt
 )
 
-# apps
-# add_simple_apps()
-
 
 

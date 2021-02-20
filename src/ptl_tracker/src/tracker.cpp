@@ -234,7 +234,6 @@ namespace ptl
 
             GPARAM(n, "/local_database/height_width_ratio_min", height_width_ratio_min);
             GPARAM(n, "/local_database/height_width_ratio_max", height_width_ratio_max);
-            GPARAM(n, "/local_database/blur_detection_threshold", blur_detection_threshold);
             GPARAM(n, "/local_database/record_interval", record_interval);
             GPARAM(n, "/local_database/batch_num_min", batch_num_min);
             GPARAM(n, "/local_database/feature_smooth_ratio", feature_smooth_ratio);

@@ -123,7 +123,6 @@ namespace ptl
             int track_to_reid_bbox_margin = 10;
             float height_width_ratio_min = 1.0;
             float height_width_ratio_max = 3.0;
-            float blur_detection_threshold = 160.0;
             float record_interval = 0.1;
             int batch_num_min = 3;
 

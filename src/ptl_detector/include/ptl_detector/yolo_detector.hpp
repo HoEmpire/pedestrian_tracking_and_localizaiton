@@ -66,10 +66,6 @@ namespace ptl
 
             void loadConfig(const ros::NodeHandle &n)
             {
-                n.getParam("/basic/use_compressed_image", config.use_compressed_image);
-                n.getParam("/basic/lidar_topic", config.lidar_topic);
-                n.getParam("/basic/camera_topic", config.camera_topic);
-                n.getParam("/basic/depth_topic", config.depth_topic);
                 n.getParam("/basic/detect_every_k_frames", config.detect_every_k_frames);
 
                 n.getParam("/cam/cam_net_type", config.cam_net_type);
