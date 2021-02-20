@@ -231,24 +231,26 @@ namespace ptl
             cv::cuda::GpuMat gpu_frame;
             cv::cuda::GpuMat resized;
             cv::cuda::GpuMat flt_image;
+            cv::Mat img_rgb;
 
             int image_num = 0;
             for (auto bbox = bboxes_begin; bbox != bboxes_end; bbox++)
             {
                 // upload image to GPU
-                gpu_frame.upload(image(*bbox));
+                cv::cvtColor(image(*bbox), img_rgb, cv::COLOR_BGR2RGB);
+                gpu_frame.upload(img_rgb);
                 auto input_size = cv::Size(input_width, input_height);
                 // resize
 
                 cv::cuda::resize(gpu_frame, resized, input_size, 0, 0, cv::INTER_NEAREST);
                 // normalize
-                resized.convertTo(flt_image, CV_32FC3, 1.f / 255.f);
+                resized.convertTo(flt_image, CV_32FC3, 1.f / 1.f);
 
                 //image in is bgr
                 //image net mean(rgb)：0.485，0.456，0.406
                 //image net mean(std)：0.229，0.224，0.225
-                cv::cuda::subtract(flt_image, cv::Scalar(0.406f, 0.456f, 0.485f), flt_image, cv::noArray(), -1);
-                cv::cuda::divide(flt_image, cv::Scalar(0.225f, 0.224f, 0.229f), flt_image, 1, -1);
+                // cv::cuda::subtract(flt_image, cv::Scalar(0.406f, 0.456f, 0.485f), flt_image, cv::noArray(), -1);
+                // cv::cuda::divide(flt_image, cv::Scalar(0.225f, 0.224f, 0.229f), flt_image, 1, -1);
 
                 // to tensor
                 std::vector<cv::cuda::GpuMat> chw;
@@ -272,24 +274,26 @@ namespace ptl
             cv::cuda::GpuMat gpu_frame;
             cv::cuda::GpuMat resized;
             cv::cuda::GpuMat flt_image;
+            cv::Mat img_rgb;
 
             int image_num = 0;
             for (auto img = image_begin; img != image_end; img++)
             {
+                cv::cvtColor(*img, img_rgb, cv::COLOR_BGR2RGB);
                 // upload image to GPU
-                gpu_frame.upload(*img);
+                gpu_frame.upload(img_rgb);
                 auto input_size = cv::Size(input_width, input_height);
                 // resize
 
                 cv::cuda::resize(gpu_frame, resized, input_size, 0, 0, cv::INTER_NEAREST);
                 // normalize
-                resized.convertTo(flt_image, CV_32FC3, 1.f / 255.f);
+                resized.convertTo(flt_image, CV_32FC3, 1.f / 1.f);
 
                 //image in is bgr
                 //image net mean(rgb)：0.485，0.456，0.406
                 //image net mean(std)：0.229，0.224，0.225
-                cv::cuda::subtract(flt_image, cv::Scalar(0.406f, 0.456f, 0.485f), flt_image, cv::noArray(), -1);
-                cv::cuda::divide(flt_image, cv::Scalar(0.225f, 0.224f, 0.229f), flt_image, 1, -1);
+                // cv::cuda::subtract(flt_image, cv::Scalar(0.406f, 0.456f, 0.485f), flt_image, cv::noArray(), -1);
+                // cv::cuda::divide(flt_image, cv::Scalar(0.225f, 0.224f, 0.229f), flt_image, 1, -1);
 
                 // to tensor
                 std::vector<cv::cuda::GpuMat> chw;
