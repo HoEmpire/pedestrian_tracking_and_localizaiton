@@ -17,7 +17,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: Image
+    SyncSource: PointCloud2
   - Class: rviz/Displays
     Help Height: 70
     Name: Displays
@@ -61,7 +61,7 @@ Visualization Manager:
       Value: true
     - Class: rviz/Image
       Enabled: true
-      Image Topic: /ptl_tracker/tracker_results
+      Image Topic: /ptl_node/tracker_results
       Max Value: 1
       Median window: 5
       Min Value: 0
@@ -73,7 +73,7 @@ Visualization Manager:
       Value: true
     - Class: rviz/Image
       Enabled: true
-      Image Topic: /ptl_reid/reid_result
+      Image Topic: /ptl_node/reid_result
       Max Value: 1
       Median window: 5
       Min Value: 0
@@ -85,7 +85,7 @@ Visualization Manager:
       Value: true
     - Class: rviz/Image
       Enabled: true
-      Image Topic: /ptl_detector/detection_result
+      Image Topic: /ptl_node/detect_result
       Max Value: 1
       Median window: 5
       Min Value: 0
@@ -97,7 +97,7 @@ Visualization Manager:
       Value: true
     - Class: rviz/MarkerArray
       Enabled: true
-      Marker Topic: /ptl_reid/marker_history
+      Marker Topic: /ptl_node/marker_history
       Name: MarkerArray
       Namespaces:
         {}
@@ -105,10 +105,10 @@ Visualization Manager:
       Value: true
     - Class: rviz/Marker
       Enabled: true
-      Marker Topic: /ptl_tracker/marker_tracking
+      Marker Topic: /ptl_node/marker_tracking
       Name: Marker
       Namespaces:
-        tracking_objects_position: true
+        {}
       Queue Size: 100
       Value: true
     - Alpha: 1
@@ -166,7 +166,7 @@ Visualization Manager:
       Size (Pixels): 3
       Size (m): 0.05000000074505806
       Style: Flat Squares
-      Topic: /ptl_tracker/point_cloud_tracking
+      Topic: /ptl_node/point_cloud_tracking
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: true

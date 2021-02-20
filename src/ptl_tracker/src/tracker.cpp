@@ -444,6 +444,7 @@ namespace ptl
 
         void TrackerInterface::update_overlap_flag()
         {
+            lock_guard<mutex> lk(mtx); //lock the thread
             for (auto &lo : local_objects_list)
             {
                 lo.is_overlap = false;
@@ -530,6 +531,7 @@ namespace ptl
 
         void TrackerInterface::report_local_object()
         {
+            // lock_guard<mutex> lk(mtx); //lock the thread
             ROS_INFO("------Local Object List Summary------");
             ROS_INFO_STREAM("Local Object Num: " << local_objects_list.size());
             for (auto lo : local_objects_list)
@@ -542,6 +544,7 @@ namespace ptl
 
         void TrackerInterface::visualize_tracking(cv::Mat &img)
         {
+            lock_guard<mutex> lk(mtx); //lock the thread
             for (auto lo : local_objects_list)
             {
                 if (lo.is_opt_enable)
@@ -554,10 +557,6 @@ namespace ptl
                 // for (auto kp : lo.keypoints_pre)
                 //     cv::circle(img, kp, 2, cv::Scalar(255, 0, 0), 2);
             }
-            std::string reid_infos_text;
-            reid_infos_text = "Total: " + std::to_string(reid_infos.total_num) +
-                              "  Last Id: " + std::to_string(reid_infos.last_query_id);
-            cv::putText(img, reid_infos_text, cv::Point(50, 50), cv::FONT_HERSHEY_COMPLEX, 1.5, cv::Scalar(0, 0, 255), 3.0);
             m_track_vis_pub.publish(cv_bridge::CvImage(std_msgs::Header(), "bgr8", img).toImageMsg());
         }
 
@@ -565,7 +564,7 @@ namespace ptl
                                                                 const std::vector<Eigen::VectorXf> &features,
                                                                 std::vector<AssociationVector> &all_detected_bbox_ass_vec)
         {
-            // lock_guard<mutex> lk(mtx); //lock
+            lock_guard<mutex> lk(mtx); //lock
             if (!local_objects_list.empty())
             {
                 ROS_INFO_STREAM("SUMMARY:" << bboxes.size() << " bboxes detected!");
@@ -630,8 +629,10 @@ namespace ptl
                 {
                     //this detected object is a new object
                     ROS_INFO_STREAM("Adding Tracking Object with ID:" << local_id_not_assigned);
+                    cv::Mat example_img;
+                    cv::resize(img(bboxes[i]), example_img, cv::Size(128, 256)); //hard code in here
                     LocalObject new_object(local_id_not_assigned, bboxes[i], features[i],
-                                           kf_param, kf3d_param, update_time, img(bboxes[i]));
+                                           kf_param, kf3d_param, update_time, example_img);
                     local_id_not_assigned++;
                     //update database
                     update_local_database(new_object, img(new_object.bbox));
@@ -662,9 +663,6 @@ namespace ptl
                                                                           const cv::Mat &img, const ros::Time &update_time, const std::vector<AssociationVector> &all_detected_bbox_ass_vec)
         {
             lock_guard<mutex> lk(mtx); //lock the thread
-
-            std::cout << feat_vector.size() << std::endl;
-            std::cout << feat_eigen.size() << std::endl;
             const int feat_dimension = feat_vector.size() / feat_eigen.size();
 
             for (int i = 0; i < all_detected_bbox_ass_vec.size(); i++)
@@ -673,8 +671,10 @@ namespace ptl
                 {
                     //this detected object is a new object
                     ROS_INFO_STREAM("Adding Tracking Object with ID:" << local_id_not_assigned);
+                    cv::Mat example_img;
+                    cv::resize(img(bboxes[i]), example_img, cv::Size(128, 256)); //hard code in here
                     LocalObject new_object(local_id_not_assigned, bboxes[i], feat_eigen[i],
-                                           kf_param, kf3d_param, update_time, img(bboxes[i]));
+                                           kf_param, kf3d_param, update_time, example_img);
                     local_id_not_assigned++;
                     //insert the 2048d feature vector
                     new_object.features_vector.insert(new_object.features_vector.end(), feat_vector.begin(), feat_vector.end());

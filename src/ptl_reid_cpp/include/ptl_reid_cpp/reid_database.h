@@ -43,10 +43,10 @@ namespace ptl
             faiss::IndexFlatL2 db;
             int feat_num = 0;
             int id = 0;
-
-        private:
             cv::Mat example_image;
             geometry_msgs::Point pos;
+
+        private:
             const int feat_dimension;
         };
 
@@ -57,7 +57,9 @@ namespace ptl
             ReidDatabase(const DataBaseParam &db_param) : db_param_(db_param), db_small(db_param_.feat_dimension) {}
 
             //query a set of image features and update the database
-            void query_and_update(const std::vector<float> &feat_query, const cv::Mat &example_image, const geometry_msgs::Point &position);
+            int query_and_update(const std::vector<float> &feat_query, const cv::Mat &example_image, const geometry_msgs::Point &position);
+            int max_id = 0;
+            std::vector<ObjectType> object_db;
 
         private:
             //query a set of features
@@ -80,9 +82,7 @@ namespace ptl
 
             void convert_index(const std::vector<faiss::Index::idx_t> &index_fake, std::vector<faiss::Index::idx_t> &index);
 
-            int max_id = 0;
             DataBaseParam db_param_;
-            std::vector<ObjectType> object_db;
 
             bool is_using_db_small = true;
             faiss::IndexFlatL2 db_small;

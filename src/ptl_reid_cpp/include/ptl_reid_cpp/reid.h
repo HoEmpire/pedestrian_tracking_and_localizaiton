@@ -1,8 +1,14 @@
 #pragma once
 #include <deque>
 #include <thread>
+#include <mutex>
+
 #include <ros/ros.h>
 #include <geometry_msgs/Point.h>
+#include <sensor_msgs/Image.h>
+#include <visualization_msgs/Marker.h>
+#include <visualization_msgs/MarkerArray.h>
+#include "cv_bridge/cv_bridge.h"
 
 #include "ptl_reid_cpp/reid_database.h"
 #include "ptl_reid_cpp/reid_inference.h"
@@ -41,16 +47,25 @@ namespace ptl
             detector::YoloPedestrainDetector reid_detector;
             std::deque<ReidOfflineType> reid_offline_buffer;
 
+            std::mutex mtx;
+
         private:
             // load parameters fros
             void load_config();
 
             void reid_offline();
 
+            void visualize_reid(int reid_id, bool is_new_object);
+
+            visualization_msgs::Marker init_marker(bool is_id_marker);
+
             ros::NodeHandle nh_;
             DataBaseParam db_param;
             InferenceParam inference_param;
             std::thread reid_offline_thread;
+
+            ros::Publisher reid_result_pub, detect_result_pub, marker_history_pub;
+            visualization_msgs::Marker id_marker, pos_marker;
         };
     } // namespace reid
 } // namespace ptl

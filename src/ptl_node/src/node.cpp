@@ -52,6 +52,7 @@ namespace ptl
                 {
                     if (dio.img_blocks.size() + dio.features_vector.size() / 2048 > node_param.min_offline_query_data_size) //TODO hardcode in here
                     {
+                        std::lock_guard<std::mutex> lk(ptl_reid.mtx);
                         ptl_reid.reid_offline_buffer.emplace_back(dio.example_image, dio.img_blocks, dio.position, dio.features_vector);
                     }
                 }

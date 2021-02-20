@@ -1,6 +1,6 @@
 reid_db:
   similarity_test_threshold: 1.0
-  same_id_threshold: 1.0
+  same_id_threshold: 1.6
   batch_ratio: 0.5
   max_feat_num_one_object: 50
   use_inverted_file_db_threshold: 2500

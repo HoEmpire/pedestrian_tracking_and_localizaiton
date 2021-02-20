@@ -5,11 +5,12 @@ namespace ptl
 {
     namespace reid
     {
-        void ReidDatabase::query_and_update(const std::vector<float> &feat_query, const cv::Mat &example_image, const geometry_msgs::Point &position)
+        int ReidDatabase::query_and_update(const std::vector<float> &feat_query, const cv::Mat &example_image, const geometry_msgs::Point &position)
         {
             int id = query(feat_query);
             update(feat_query, id, example_image, position);
             report_object_db();
+            return id;
         }
 
         int ReidDatabase::query(const std::vector<float> &feat_query, bool need_report)
