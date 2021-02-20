@@ -59,9 +59,6 @@ The config files of each package can be found in `${PROJECT_NAME}/config/config.
 - ptl_detector
 
   ```yaml
-  basic:
-    detect_every_k_frames: 4 #perform detection every K frames to reduce GPU load
-
   cam:
     cam_net_type: "YOLOV4_TINY" #net type
     cam_file_model_cfg: "/asset/yolov4-tiny.cfg" #config file path
@@ -164,9 +161,9 @@ The config files of each package can be found in `${PROJECT_NAME}/config/config.
 
   - **bbox_overlap_ratio**: if the overlapping area ratio of the bounding box(bbox) from the detector and the tracker is higher than this value, we match these two bounding boxes, and use the detector bbox to reinitialized the matched tracker.
 
-  - Overlaping area ratio is calculated by
+    - Overlaping area ratio is calculated by
 
-    $$ratio = min(\frac{Area_{overlap}}{Area_{detector}},\frac{Area_{overlap}}{Area_{detector}})$$
+      $$ratio = min(\frac{Area_{overlap}}{Area_{detector}},\frac{Area_{overlap}}{Area_{detector}})$$
 
   - **track_fail_timeout_tick**: if the tracker fails for track_fail_timeout_tick frames, we consider this tracker fails and remove it from the list.
   - **detector_update_timeout_tick**: if the ticks after last update by detector is too long, we consider that we lose track of this target
@@ -179,9 +176,7 @@ The config files of each package can be found in `${PROJECT_NAME}/config/config.
     record_interval: 0.1 # the minimum time interval between two recorded images in a local database (Unit: s).
   - **batch_num_min**: deprecated, check the `min_offline_query_data_size` in `ptl_reid_cpp/config/config.yaml`
   - **feature_smooth_ratio**: the current feature of a tracking object is calculated by:
-
     $$feature_{current} = ratio * feature_{previous} + (1- ratio) * feature_{new}$$
-
   - **resample_size**: point cloud resample size(Unit:m)
   - **x_min/x_max/z_min/z_max**: point cloud conditional filter(Unit:m)
   - **std_dev_thres/mean_k**: statistial filter param
@@ -239,6 +234,14 @@ The config files of each package can be found in `${PROJECT_NAME}/config/config.
   - **find_first_k**: find the first k closest object in query
   - **nlist_ratio**: sub cell ratio in inverted file
   - **sim_check_start_threshold**: when the number of the image of an object is bigger than this value, we will start the similarity test (to ensure wrong image will have little effect in building database)
+
+- ptl_node
+  ```yaml
+  detect_every_k_frame: 5 # perform detection in everyt k frame to reduce GPU load
+  lidar_topic: "/rslidar_points"
+  camera_topic: "/camera2/color/image_raw/compressed"
+  min_offline_query_data_size: 20 # the minimal data size (feature size + image size) to query a dead tracking object. This param is to make sure that we will not query the wrong detected object
+  ```
 
 ### 3. Run
 

@@ -1,6 +1,3 @@
-basic:
-  detect_every_k_frames: 4
-
 cam:
   cam_net_type: "YOLOV4_TINY"
   cam_file_model_cfg: "/asset/yolov4-tiny.cfg"

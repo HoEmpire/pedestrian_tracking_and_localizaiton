@@ -22,7 +22,6 @@ namespace ptl
             float cam_prob_threshold = 0.5;
             float cam_min_height = 0;
             float cam_max_height = 480;
-            int detect_every_k_frames = 5;
         };
 
         class YoloPedestrainDetector
@@ -66,8 +65,6 @@ namespace ptl
 
             void loadConfig(const ros::NodeHandle &n)
             {
-                n.getParam("/basic/detect_every_k_frames", config.detect_every_k_frames);
-
                 n.getParam("/cam/cam_net_type", config.cam_net_type);
                 n.getParam("/cam/cam_file_model_cfg", config.cam_file_model_cfg);
                 n.getParam("/cam/cam_file_model_weights", config.cam_file_model_weights);
