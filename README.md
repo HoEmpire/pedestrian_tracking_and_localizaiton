@@ -27,9 +27,9 @@ Just imagining such a condition, you have a wheeled robot equipping with a lidar
 - Ubuntu 18.04
 - ROS Melodic
 - OpenCV > 4.1
-- CUDA > 10.0
-- cuDNN > 7.6.5
-- TensorRT > 7.0.0
+- CUDA = 10.2
+- cuDNN = 7.6.5
+- TensorRT = 7.2.2.3
 - GLOG
 - [faiss](https://github.com/facebookresearch/faiss)
 
