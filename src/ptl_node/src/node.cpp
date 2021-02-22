@@ -14,7 +14,7 @@ namespace ptl
         {
             load_config();
             ptl_reid.init();
-            ptl_tracker.init(false);
+            ptl_tracker.init();
             lidar_sub = nh_.subscribe(node_param.lidar_topic, 1, &Node::lidar_callback, this);
             camera_sub = nh_.subscribe(node_param.camera_topic, 1, &Node::camera_callback, this);
         }

@@ -13,71 +13,15 @@ namespace ptl
 {
     namespace tracker
     {
-        void TrackerInterface::init(bool register_subscriber)
+        void TrackerInterface::init()
         {
             load_config(&nh_);
             opt_tracker = OpticalFlow(opt_param);
 
             //publisher
             m_track_vis_pub = nh_.advertise<sensor_msgs::Image>("tracker_results", 1);
-            m_track_to_reid_pub = nh_.advertise<ptl_msgs::DeadTracker>("tracker_to_reid", 1);
             m_track_marker_pub = nh_.advertise<visualization_msgs::Marker>("marker_tracking", 1);
             m_pc_filtered_debug = nh_.advertise<sensor_msgs::PointCloud2>("point_cloud_tracking", 1);
-
-            if (register_subscriber)
-            {
-                //subscirbe
-                m_detector_sub = nh_.subscribe("/ptl_reid/detector_to_reid_to_tracker", 1, &TrackerInterface::detector_result_callback, this);
-                m_reid_sub = nh_.subscribe("/ptl_reid/reid_to_tracker", 1, &TrackerInterface::reid_callback, this);
-
-                if (use_compressed_image)
-                {
-                    m_image_sub = nh_.subscribe(camera_topic, 1, &TrackerInterface::image_tracker_callback_compressed_img, this);
-                }
-                else
-                {
-                    m_image_sub = nh_.subscribe(camera_topic, 1, &TrackerInterface::image_tracker_callback, this);
-                }
-
-                if (use_lidar)
-                {
-                    m_lidar_sub = nh_.subscribe(lidar_topic, 1, &TrackerInterface::lidar_tracker_callback, this);
-                }
-            }
-        }
-
-        void TrackerInterface::detector_result_callback(const ptl_msgs::ImageBlockPtr &msg)
-        {
-            ROS_INFO_STREAM("******Into Detector Callback******");
-            timer t_spent;
-            if (msg->ids.empty())
-                return;
-            vector<Eigen::VectorXf> features;
-            vector<cv::Rect2d> bboxes;
-            for (int i = 0; i < msg->features.size(); i++)
-            {
-                bboxes.push_back(cv::Rect2d(msg->bboxes[i].data[0], msg->bboxes[i].data[1], msg->bboxes[i].data[2], msg->bboxes[i].data[3]));
-                features.push_back(feature_ros_to_eigen(msg->features[i]));
-            }
-            cv_bridge::CvImagePtr cv_ptr;
-            cv_ptr = cv_bridge::toCvCopy(msg->img, sensor_msgs::image_encodings::BGR8);
-            //maximum block size, to perform augumentation and rectification of the tracker block
-            cv::Rect2d block_max(0, 0, cv_ptr->image.cols, cv_ptr->image.rows);
-
-            //update by optical flow first
-            track_bbox_by_optical_flow(cv_ptr->image, msg->img.header.stamp, false);
-
-            //associate the detected bboxes with tracking bboxes
-            vector<AssociationVector> all_detected_bbox_ass_vec;
-            detector_and_tracker_association(bboxes, block_max, features, all_detected_bbox_ass_vec);
-
-            //local object list management
-            manage_local_objects_list_by_detector(bboxes, block_max, features, cv_ptr->image, msg->img.header.stamp, all_detected_bbox_ass_vec);
-            //summary
-            report_local_object();
-            ROS_INFO_STREAM("detector update:" << t_spent.toc() * 1000 << " ms");
-            ROS_INFO_STREAM("******Out of Detector Callback******");
-            std::cout << std::endl;
         }
 
         std::vector<LocalObject> TrackerInterface::update_bbox_by_tracker(const cv::Mat &img, const ros::Time &update_time)
@@ -143,31 +87,6 @@ namespace ptl
             std::cout << std::endl;
         }
 
-        void TrackerInterface::image_tracker_callback(const sensor_msgs::ImageConstPtr &msg)
-        {
-            ROS_INFO("******Into Tracker Callback******");
-            timer img_proc_timer;
-            cv_bridge::CvImagePtr cv_ptr;
-            cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
-            ROS_INFO_STREAM("Data preprocess takes: " << img_proc_timer.toc() * 1000 << " ms");
-            update_bbox_by_tracker(cv_ptr->image, cv_ptr->header.stamp);
-            ROS_INFO_STREAM("optical flow tracking takes: " << img_proc_timer.toc() * 1000 << " ms");
-            ROS_INFO("******Out of Tracker Callback******");
-            std::cout << std::endl;
-        }
-
-        void TrackerInterface::image_tracker_callback_compressed_img(const sensor_msgs::CompressedImageConstPtr &msg)
-        {
-            ROS_INFO("******Into Tracker Callback******");
-            timer img_proc_timer;
-            cv_bridge::CvImagePtr cv_ptr;
-            cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
-            update_bbox_by_tracker(cv_ptr->image, cv_ptr->header.stamp);
-            ROS_INFO_STREAM("optical flow tracking takes: " << img_proc_timer.toc() * 1000 << " ms");
-            ROS_INFO("******Out of Tracker Callback******");
-            std::cout << std::endl;
-        }
-
         void TrackerInterface::lidar_tracker_callback(const sensor_msgs::PointCloud2ConstPtr &msg_pc)
         {
             ROS_INFO_STREAM("******Into Localization Callback******");
@@ -206,12 +125,6 @@ namespace ptl
             std::cout << std::endl;
         }
 
-        void TrackerInterface::reid_callback(const ptl_msgs::ReidInfo &msg)
-        {
-            reid_infos.total_num = msg.total_num;
-            reid_infos.last_query_id = msg.last_query_id;
-        }
-
         void TrackerInterface::load_config(ros::NodeHandle *n)
         {
             GPARAM(n, "/basic/use_compressed_image", use_compressed_image);
@@ -235,7 +148,6 @@ namespace ptl
             GPARAM(n, "/local_database/height_width_ratio_min", height_width_ratio_min);
             GPARAM(n, "/local_database/height_width_ratio_max", height_width_ratio_max);
             GPARAM(n, "/local_database/record_interval", record_interval);
-            GPARAM(n, "/local_database/batch_num_min", batch_num_min);
             GPARAM(n, "/local_database/feature_smooth_ratio", feature_smooth_ratio);
 
             //point_cloud_processor
@@ -510,8 +422,6 @@ namespace ptl
                         msg_pub.img_blocks.push_back(*cv_bridge::CvImage(std_msgs::Header(), "bgr8", ib).toImageMsg());
                     }
                     msg_pub.position = lo->position;
-                    if (msg_pub.img_blocks.size() > batch_num_min)
-                        m_track_to_reid_pub.publish(msg_pub);
                     dead_tracking_object.push_back(*lo);
                     lo = local_objects_list.erase(lo);
                     continue;

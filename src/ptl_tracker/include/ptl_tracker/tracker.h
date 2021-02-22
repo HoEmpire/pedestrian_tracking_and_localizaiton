@@ -40,7 +40,7 @@ namespace ptl
             TrackerInterface() = default;
             TrackerInterface(const ros::NodeHandle &n) : nh_(n) {}
 
-            void init(bool register_subscriber = true);
+            void init();
 
             //udpate bbox by optical tracker and return the dead tracker
             std::vector<LocalObject> update_bbox_by_tracker(const cv::Mat &img, const ros::Time &update_time);
@@ -52,12 +52,6 @@ namespace ptl
             void lidar_tracker_callback(const sensor_msgs::PointCloud2ConstPtr &msg_pc);
 
         private:
-            void detector_result_callback(const ptl_msgs::ImageBlockPtr &msg);
-
-            void image_tracker_callback(const sensor_msgs::ImageConstPtr &msg);
-            void image_tracker_callback_compressed_img(const sensor_msgs::CompressedImageConstPtr &msg);
-
-            void reid_callback(const ptl_msgs::ReidInfo &msg);
             void load_config(ros::NodeHandle *n);
 
             bool update_local_database(LocalObject &local_object, const cv::Mat &img_block);
@@ -96,7 +90,7 @@ namespace ptl
 
         private:
             ros::NodeHandle nh_;
-            ros::Publisher m_track_vis_pub, m_track_to_reid_pub, m_track_marker_pub;
+            ros::Publisher m_track_vis_pub, m_track_marker_pub;
             ros::Publisher m_pc_filtered_debug, m_pc_cluster_debug;
             ros::Subscriber m_detector_sub, m_image_sub, m_reid_sub, m_lidar_sub;
 
@@ -124,7 +118,6 @@ namespace ptl
             float height_width_ratio_min = 1.0;
             float height_width_ratio_max = 3.0;
             float record_interval = 0.1;
-            int batch_num_min = 3;
 
             int detector_update_timeout_tick = 10;
             int stop_opt_timeout = 5;

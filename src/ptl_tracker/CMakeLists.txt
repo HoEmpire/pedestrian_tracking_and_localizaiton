@@ -43,13 +43,3 @@ add_library(ptl_tracker
         )
 target_link_libraries(ptl_tracker ${OpenCV_LIBS} ${catkin_LIBRARIES} ${PCL_LIBRARIES}) 
 add_dependencies(ptl_tracker ptl_msgs_generate_messages_cpp)
-
-add_executable(tracker app/main.cpp) 
-target_link_libraries(tracker ptl_tracker)
-add_dependencies(tracker ptl_msgs_generate_messages_cpp)
-
-# add_executable(tf_publisher src/tf_publisher.cpp) 
-# target_link_libraries(tf_publisher ${catkin_LIBRARIES})
-
-# add_executable(pc_test test/pc_experienment.cpp) 
-# target_link_libraries(pc_test ${catkin_LIBRARIES})
