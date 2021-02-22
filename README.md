@@ -105,7 +105,6 @@ The config files of each package can be found in `${PROJECT_NAME}/config/config.
     height_width_ratio_min: 0.85 #only the image block with height/width falls in the range of (height_width_ratio_min, height_width_ratio_max) will be added into the local database.
     height_width_ratio_max: 4.0
     record_interval: 0.1 # the minimum time interval between two recorded images in a local database (Unit: s).
-    batch_num_min: 8
     feature_smooth_ratio: 0.7
 
   pc_processor:
@@ -168,7 +167,7 @@ The config files of each package can be found in `${PROJECT_NAME}/config/config.
   - **bbox_overlap_ratio**: if the overlapping area ratio of the bounding box(bbox) from the detector and the tracker is higher than this value, we match these two bounding boxes, and use the detector bbox to reinitialized the matched tracker.
 
     - Overlaping area ratio is calculated by
-      
+
       <img src="https://render.githubusercontent.com/render/math?math=ratio = min(\frac{Area_{overlap}}{Area_{detector}},\frac{Area_{overlap}}{Area_{detector}})">
 
   - **track_fail_timeout_tick**: if the tracker fails for track_fail_timeout_tick frames, we consider this tracker fails and remove it from the list.
@@ -180,11 +179,10 @@ The config files of each package can be found in `${PROJECT_NAME}/config/config.
   - **stop_opt_timeout**: when the ticks after last update by detector is larger than this param, we stop updating the tracker by optical flow, but only update the tracker by its state. The purpose is to prevent degeneration of performance when occlussion happens.
   - **height_width_ratio_min/max**: only the image block with height/width falls in the range of (height_width_ratio_min, height_width_ratio_max) will be added into the local database.
     record_interval: 0.1 # the minimum time interval between two recorded images in a local database (Unit: s).
-  - **batch_num_min**: deprecated, check the `min_offline_query_data_size` in `ptl_reid_cpp/config/config.yaml`
   - **feature_smooth_ratio**: the current feature of a tracking object is calculated by:
-  
+
        <img src="https://render.githubusercontent.com/render/math?math=feature_{current} = ratio * feature_{previous} %2B (1- ratio) * feature_{new}">
-  
+
   - **resample_size**: point cloud resample size(Unit:m)
   - **x_min/x_max/z_min/z_max**: point cloud conditional filter(Unit:m)
   - **std_dev_thres/mean_k**: statistial filter param
