@@ -356,7 +356,7 @@ namespace ptl
 
         void TrackerInterface::update_overlap_flag()
         {
-            lock_guard<mutex> lk(mtx); //lock the thread
+            // lock_guard<mutex> lk(mtx); //lock the thread
             for (auto &lo : local_objects_list)
             {
                 lo.is_overlap = false;
@@ -387,7 +387,7 @@ namespace ptl
         void TrackerInterface::track_bbox_by_optical_flow(const cv::Mat &img, const ros::Time &update_time, bool update_database)
         {
             cv::Rect2d block_max(cv::Point2d(0, 0), cv::Point2d(img.cols, img.rows));
-            lock_guard<mutex> lk(mtx); //lock the thread
+
             // get the bbox measurement by optical flow
             opt_tracker.update(img, local_objects_list);
 
@@ -407,7 +407,7 @@ namespace ptl
 
         std::vector<LocalObject> TrackerInterface::remove_dead_trackers()
         {
-            lock_guard<mutex> lk(mtx);                     //lock the thread
+
             std::vector<LocalObject> dead_tracking_object; //TOOD inefficient implementation in here
             for (auto lo = local_objects_list.begin(); lo < local_objects_list.end();)
             {
@@ -423,6 +423,7 @@ namespace ptl
                     }
                     msg_pub.position = lo->position;
                     dead_tracking_object.push_back(*lo);
+                    lock_guard<mutex> lk(mtx); //lock the thread
                     lo = local_objects_list.erase(lo);
                     continue;
                 }
@@ -454,7 +455,7 @@ namespace ptl
 
         void TrackerInterface::visualize_tracking(cv::Mat &img)
         {
-            lock_guard<mutex> lk(mtx); //lock the thread
+            // lock_guard<mutex> lk(mtx); //lock the thread
             for (auto lo : local_objects_list)
             {
                 if (lo.is_opt_enable)
@@ -474,7 +475,7 @@ namespace ptl
                                                                 const std::vector<Eigen::VectorXf> &features,
                                                                 std::vector<AssociationVector> &all_detected_bbox_ass_vec)
         {
-            lock_guard<mutex> lk(mtx); //lock
+            // lock_guard<mutex> lk(mtx); //lock
             if (!local_objects_list.empty())
             {
                 ROS_INFO_STREAM("SUMMARY:" << bboxes.size() << " bboxes detected!");
@@ -531,7 +532,7 @@ namespace ptl
                                                                      const ros::Time &update_time,
                                                                      const std::vector<AssociationVector> &all_detected_bbox_ass_vec)
         {
-            lock_guard<mutex> lk(mtx); //lock the thread
+
             for (int i = 0; i < all_detected_bbox_ass_vec.size(); i++)
             {
 
@@ -546,6 +547,7 @@ namespace ptl
                     local_id_not_assigned++;
                     //update database
                     update_local_database(new_object, img(new_object.bbox));
+                    lock_guard<mutex> lk(mtx); //lock the thread
                     local_objects_list.push_back(new_object);
                 }
                 else
@@ -572,7 +574,7 @@ namespace ptl
                                                                           const std::vector<Eigen::VectorXf> &feat_eigen, const std::vector<float> &feat_vector,
                                                                           const cv::Mat &img, const ros::Time &update_time, const std::vector<AssociationVector> &all_detected_bbox_ass_vec)
         {
-            lock_guard<mutex> lk(mtx); //lock the thread
+
             const int feat_dimension = feat_vector.size() / feat_eigen.size();
 
             for (int i = 0; i < all_detected_bbox_ass_vec.size(); i++)
@@ -586,6 +588,7 @@ namespace ptl
                     LocalObject new_object(local_id_not_assigned, bboxes[i], feat_eigen[i],
                                            kf_param, kf3d_param, update_time, example_img);
                     local_id_not_assigned++;
+                    lock_guard<mutex> lk(mtx); //lock the thread
                     //insert the 2048d feature vector
                     new_object.features_vector.insert(new_object.features_vector.end(), feat_vector.begin(), feat_vector.end());
 
