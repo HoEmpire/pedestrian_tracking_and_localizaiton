@@ -32,6 +32,7 @@ Just imagining such a condition, you have a wheeled robot equipping with a lidar
 - TensorRT = 7.2.2.3
 - GLOG
 - [faiss](https://github.com/facebookresearch/faiss)
+- libcublas-dev
 
 ## Usage
 
